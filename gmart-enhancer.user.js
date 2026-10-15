@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.3.0
+// @version      6.4.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -247,36 +247,30 @@
      blanket dark-mode img brightness(.92) rule only dimmed it) */
   html.gm-dark .gm-tile img[src*="Cart3"] { filter:brightness(0) invert(1) !important; }
   html:not(.gm-dark) .gm-tile img[src*="Cart3"] { filter:none; }
-  /* ===== v6.3: HOME / LANDING PAGE cards ===== */
-  /* enhanceHome() builds one real div.gm-home-grid per section and moves the
-     featured .gm-home-card boxes into it, so we can use a plain CSS grid. */
-  html.gm-home-enh .gm-home-grid { display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; width:100%;
-    margin:4px 0 8px; align-items:start; }
-  html.gm-home-enh .gm-home-card { display:flex; gap:10px; align-items:flex-start;
-    padding:10px 12px; border:1px solid #d4d8df; border-left-width:4px;
-    border-left-color:#c3c8d0; border-radius:10px; background:#fff; }
-  html.gm-dark .gm-home-card { background:#20242b; border-color:#363b43; border-left-color:#4a505a; }
-  /* text column holds title, price/actions, blurb stacked */
-  html.gm-home-enh .gm-home-text { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:5px; }
-  html.gm-home-enh td.home-preorder-cell.gm-st-sale .gm-home-card { border-left-color:#d6409f; }
-  /* cover: fixed-width left column, no float */
-  html.gm-home-enh .gm-home-cover { flex:0 0 72px; float:none !important; margin:0 !important;
-    display:block; align-self:flex-start; }
-  html.gm-home-enh .gm-home-cover img { width:72px; height:auto; border-radius:4px; display:block;
-    float:none !important; filter:none !important; }
-  /* text column: title, price/actions, blurb stacked */
-  html.gm-home-enh .gm-home-text > strong,
-  html.gm-home-enh .gm-home-text > .text-size-medium:first-of-type { font-size:13.5px; line-height:1.3; }
-  html.gm-dark .gm-home-text > strong { color:#eef0f3; }
-  html.gm-home-enh .gm-home-blurb { font-size:11px; line-height:1.35; color:#55606e;
-    max-height:52px; overflow:auto; }
-  html.gm-dark .gm-home-blurb { color:#aab2bd; }
-  /* discount / save badges pop */
-  html.gm-home-enh .gm-home-badge { font-weight:700; }
+  /* ===== v6.4: HOME / LANDING PAGE — READABILITY ONLY ===== */
+  /* Deliberately NO layout changes. The home page is a legacy nested-table
+     layout (with a hidden mobile duplicate); every attempt to card-ify or grid
+     it caused overlap. So we touch ZERO geometry — no width caps, no float
+     changes, no padding/border overrides. We ONLY recolor text for dark mode
+     so prices/titles/links are readable, style the section header banners
+     (safe — they're standalone divs, not item cells), and make discount
+     badges pop. The native layout renders exactly as the site intends. */
+  html.gm-dark.gm-home-enh td.home-preorder-cell,
+  html.gm-dark .gm-home-enh td.home-preorder-cell,
+  html.gm-dark.gm-home-enh td.home-preorder-cell strong,
+  html.gm-dark .gm-home-enh td.home-preorder-cell strong { color:#e3e5e8 !important; }
+  html.gm-dark.gm-home-enh td.home-preorder-cell .actiontext-price,
+  html.gm-dark .gm-home-enh td.home-preorder-cell .actiontext-price,
+  html.gm-dark.gm-home-enh td.home-preorder-cell .actiontext-price tt,
+  html.gm-dark .gm-home-enh td.home-preorder-cell .actiontext-price tt,
+  html.gm-dark.gm-home-enh td.home-preorder-cell .actiontext-price a,
+  html.gm-dark .gm-home-enh td.home-preorder-cell .actiontext-price a { color:#8fd0ff !important; }
+  html.gm-dark.gm-home-enh td.home-preorder-cell a,
+  html.gm-dark .gm-home-enh td.home-preorder-cell a { color:#8fd0ff; }
+  /* discount / save badges pop (color only — no layout) */
   html.gm-home-enh .gm-home-badge .text-size-small,
   html.gm-home-enh strong.div-bubbleblock-sale-verycompact { color:#d6409f !important; }
-  /* section banners */
+  /* section header banners (standalone divs — safe to restyle) */
   html.gm-home-enh .gm-home-section { background:linear-gradient(90deg,#1d4ed8,#2563eb); color:#fff;
     font-weight:700; font-size:14px; padding:8px 14px; border-radius:8px; margin:14px 0 10px; }
   html.gm-home-enh .gm-home-section a { color:#dbeafe !important; font-weight:500; }
@@ -1035,84 +1029,25 @@
   // Non-destructive: we only add classes + a flex text-wrapper; we never move
   // the price/SUBSCRIBE/BACK-ISSUES anchors, so their hrefs stay intact.
   function enhanceHome() {
+    // MINIMAL in-place pass (v6.4). We do NOT restructure the DOM — the native
+    // layout is dozens of tiny tables, and moving cells into grids made the
+    // cards overlap on the real page. Here we only add marker classes so CSS
+    // can (a) constrain each cell so it can't overflow/overlap, (b) shrink the
+    // cover, (c) force prices/text light in dark mode, (d) style the section
+    // banners + discount badges. The native table flow is left fully intact.
     const cells = [...document.querySelectorAll('td.home-preorder-cell')];
     if (!cells.length) return false;
-    const root = document.querySelector('.gm-home') ? null : document.body;
     document.documentElement.classList.add('gm-home-enh');
-
     cells.forEach(td => {
-      const box = td.querySelector(':scope > [class*="home-preorder-cell-minwidth"]') || td;
-      if (box.dataset.gmHome) return;
-      box.dataset.gmHome = '1';
-      box.classList.add('gm-home-card');
-      // the cover image (if any) — move it to be the FIRST child so flex can
-      // place it on the left; keep its anchor wrapper intact.
-      const coverImg = box.querySelector('img[class*="home-preorder-image"]');
-      const coverAnchor = coverImg ? coverImg.closest('a') : null;
-      if (coverAnchor) {
-        coverAnchor.classList.add('gm-home-cover');
-        box.insertBefore(coverAnchor, box.firstChild);
-      }
-      // wrap EVERYTHING that isn't the cover into a single text column, so the
-      // card is a clean 2-col flex (cover | text) with no multi-row spanning
-      // (the previous grid-row span approach ballooned card height).
-      const textCol = document.createElement('div');
-      textCol.className = 'gm-home-text';
-      [...box.childNodes].forEach(n => {
-        if (n === coverAnchor) return;
-        textCol.appendChild(n);
-      });
-      box.appendChild(textCol);
-      // wrap the trailing solicitation blurb (a bare text node) so it becomes
-      // a real grid item in the text column instead of an anonymous box.
-      [...box.childNodes].forEach(n => {
-        if (n.nodeType === 3 && n.textContent.trim().length > 2) {
-          const w = document.createElement('div');
-          w.className = 'gm-home-blurb';
-          w.textContent = n.textContent.replace(/\s+/g, ' ').trim();
-          box.replaceChild(w, n);
-        }
-      });
-      // discount / sale badges pop
-      box.querySelectorAll('.div-bubbleblock-sale-verycompact, [class*="homebutton-sale"], .actiontext-discount').forEach(b => b.classList.add('gm-home-badge'));
-      // status accent from the SALE gif (home uses button_sale.gif inline)
-      if (box.querySelector('img[src*="button_sale"]') || /save\s*\d+%|%\s*off/i.test(box.textContent)) {
-        td.classList.add('gm-st-sale');
-      }
+      if (td.dataset.gmHome) return;
+      td.dataset.gmHome = '1';
+      // discount / sale badges pop (add class only — no DOM move)
+      td.querySelectorAll('.div-bubbleblock-sale-verycompact, [class*="homebutton-sale"], .actiontext-discount').forEach(b => b.classList.add('gm-home-badge'));
     });
-
-    // section banners + promo strip
+    // section banners
     document.querySelectorAll('div.home-section').forEach(s => s.classList.add('gm-home-section'));
-    // Build a REAL grid per section and MOVE the featured cells into it. The
-    // native layout is dozens of tiny <table.home-preorder-table> (1-2 cells
-    // each) inside a wrapper — too fragile for display:contents. Instead we
-    // create one div.gm-home-grid in each wrapper and relocate every cell's
-    // card box into it as a direct grid child (hrefs are preserved — moving a
-    // node keeps its handlers/attributes). Then we hide the emptied tables.
-    const wrappers = new Set();
-    document.querySelectorAll('table.home-preorder-table').forEach(t => {
-      if (t.parentElement) wrappers.add(t.parentElement);
-    });
-    wrappers.forEach(wrap => {
-      if (wrap.querySelector(':scope > .gm-home-grid')) return; // idempotent
-      const grid = document.createElement('div');
-      grid.className = 'gm-home-grid';
-      // collect this wrapper's cells in document order
-      const cells = [...wrap.querySelectorAll(':scope > table.home-preorder-table td.home-preorder-cell')];
-      if (!cells.length) return;
-      // insert the grid where the first table is, then move cards in
-      const firstTable = wrap.querySelector(':scope > table.home-preorder-table');
-      wrap.insertBefore(grid, firstTable);
-      cells.forEach(td => {
-        const card = td.querySelector(':scope > .gm-home-card') || td;
-        grid.appendChild(card);          // relocate the card box itself
-      });
-      // hide the now-empty native tables
-      wrap.querySelectorAll(':scope > table.home-preorder-table').forEach(t => { t.style.display = 'none'; });
-    });
     return true;
   }
-
   // ----- boot -----------------------------------------------------------
   function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); styleSearchForm(); gmFixContrast(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
