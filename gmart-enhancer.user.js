@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.15.2
+// @version      6.15.3
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -1702,7 +1702,9 @@
     if (bubbles.length < 2) return false;
     // guard: must be the pre-orders catalog (Record Orders submit present)
     const isPO = [...document.querySelectorAll('input[type=submit]')]
-      .some(b => /record orders/i.test(b.value || ''));
+      .some(b => /record (orders|subscriptions)/i.test(b.value || ''));
+    // v6.15.3: "All Subscriptions" (hub > Browse All) is the same bubble layout
+    // with a Record Subscriptions submit.
     if (!isPO) return false;
     // v6.14: publisher browse pages wrap EACH bubble in its own
     // div.div-bubbles-space-compact-clear, with publisher headings between
@@ -1742,7 +1744,9 @@
         a.style.removeProperty('color'); a.removeAttribute('data-gm-prev-color');
       });
       // title: the pretext span (keep its native click-to-toggle handler)
-      const title = b.querySelector('span[id^="pretext_"]');
+      // v6.15.3: on All Subscriptions the series name is span#subtext_*; there
+      // pretext_* is only the "(►starts AFTER)" toggle
+      const title = b.querySelector('span[id^="subtext_"]') || b.querySelector('span[id^="pretext_"]');
       if (title) title.classList.add('gm-tile-title');
       // move the hidden solicitation blurb into a hover-reveal footer.
       // NOTE: the qty input is ALSO .display-none (name=qsub_*). Only treat a

@@ -1,0 +1,16 @@
+# Local-only material (account data / session state) — never commit
+versions/
+reference/
+IMPROVEMENT-PLAN.md.bak
+*.log
+
+# tests/: allowlist — only the reusable scripts + README
+tests/*
+!tests/README.md
+!tests/run.js
+!tests/cartwant.js
+!tests/want.js
+!tests/verify.js
+
+.DS_Store
+node_modules/
