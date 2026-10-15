@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.14.2
+// @version      6.14.3
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -134,10 +134,16 @@
   html.gm-dark [class*="dropdown-menu"] a:hover,
   html.gm-dark ul[class*="menu"] li a:hover,
   html.gm-dark div[class*="menu"] ul li a:hover { color:#dce9ff !important; }
-  html.gm-dark [class*="menu-dropdown"],
-  html.gm-dark [class*="dropdown-menu"],
+  /* v6.14.3: darken only the fly-out LIST — div.menu-dropdown is also the
+     wrapper around the header button's own ▼label, and darkening it left a dark
+     box inside each blue pill (just a blue/grey rim showing). */
+  html.gm-dark [class*="menu-dropdown"] ul,
+  html.gm-dark [class*="dropdown-menu"] ul,
   html.gm-dark ul[class*="menu"] li,
   html.gm-dark div[class*="menu"] ul li { background-color:#262a31 !important; }
+  /* the account / Guest pill is the site's light grey (navbutton-info); in dark
+     mode match the blue Customer Service / Social / Search / FAQ pills */
+  html.gm-dark .navbutton-info { background:#005fb2 !important; }
 
   /* Dark-mode contrast is finished with a JS pass (gmFixContrast) that finds
      elements whose OWN background stays light and forces dark text on just
