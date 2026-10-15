@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.15.1
+// @version      6.15.2
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -273,7 +273,10 @@
   #gm-panel h4 { margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.05em; opacity:.7; }
 
   /* ===== CATALOG ENHANCER (Current Issues / Back Issues / GNs / browse / search) ===== */
-  .gm-cat-toolbar { position:sticky; top:0; z-index:60; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  /* v6.15.2: pin just BELOW the sticky site header (its height is measured into
+     --gm-nav-h by syncNavOffset) and under it in stacking order, so the
+     header's fly-out menus still open over the toolbar */
+  .gm-cat-toolbar { position:sticky; top:var(--gm-nav-h, 0px); z-index:45; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
     margin:0 0 10px; padding:10px 12px; background:#fff; border:1px solid #dcdfe4; border-radius:10px; font-size:14px; }
   html.gm-dark .gm-cat-toolbar { background:#1e2127; border-color:#3a3f47; }
   .gm-cat-toolbar input[type=search] { flex:1 1 240px; min-width:160px; padding:7px 10px; border:1px solid #cbd0d6; border-radius:7px; font-size:14px; }
@@ -763,6 +766,7 @@
     const h = document.documentElement;
     h.classList.toggle('gm-enh', !!S.reskin);
     h.classList.toggle('gm-dark', !!(S.reskin && S.darkMode));
+    if (typeof syncNavOffset === 'function' && document.body) syncNavOffset();
     // keep the dark-mode contrast pass in sync with the toggle
     if (S.reskin && S.darkMode) {
       if (typeof gmFixContrast === 'function') gmFixContrast();
@@ -834,9 +838,6 @@
     allTrs.forEach((tr, idx) => {
       const input = tr.querySelector('input[name^="x"],input[name^="q"]');
       const isItem = input && /^[xq]\d+$/.test(input.name);
-      const isSection = tr.classList.contains('invoicebasic-tr-section') ||
-        [...tr.children].some(td => td.classList.contains('invoicebasic-td-section')) ||
-        [...tr.children].some(td => td.classList.contains('invoicebasic-td-total'));
       tr.dataset.gmOrig = idx; // remember native order
       if (isItem) {
         tr.classList.add('gm-item');
@@ -941,11 +942,6 @@
       const ordered = [...tbody.children].sort((a, b) =>
         (+a.dataset.gmOrig || 0) - (+b.dataset.gmOrig || 0));
       ordered.forEach(tr => tbody.appendChild(tr));
-    }
-
-    function anchorRow() {
-      // first row AFTER the native header, to insert reordered items before
-      return headRow ? headRow.nextSibling : tbody.firstChild;
     }
 
     function render() {
@@ -1074,7 +1070,7 @@
 
   // When on the subscriptions page, remember the user's series names so the
   // catalog "hide owned" filter can use them on other pages. Persisted via GM.
-  function captureOwnedTitles(didList) {
+  function captureOwnedTitles() {
     const info = detectList();
     if (!info || info.kind !== 'subs') return;
     const names = info.inputs.map(inp => {
@@ -1647,7 +1643,17 @@
     return true;
   }
 
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhancePreorderCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); tagHeaderAndHub(); gmFixContrast(); }
+  // v6.15.2: the site header (.navtable-main) is sticky under the clean theme;
+  // publish its height so the sticky catalog toolbar can sit just below it.
+  function syncNavOffset() {
+    const nav = document.querySelector('.navtable-main');
+    const h = (S.reskin && nav) ? Math.round(nav.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--gm-nav-h', h + 'px');
+  }
+  window.addEventListener('resize', syncNavOffset);
+  window.addEventListener('load', syncNavOffset);
+
+  function boot() { buildGear(); enhanceList(); captureOwnedTitles(); enhanceCatalog(); enhancePreorderCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); tagHeaderAndHub(); gmFixContrast(); syncNavOffset(); }
 
   // ===== v6.13: tag the account-name element + the Subscriptions hub =====
   // The header shows the logged-in account as "#NNNNN Your Name" in a
@@ -1738,8 +1744,7 @@
       // title: the pretext span (keep its native click-to-toggle handler)
       const title = b.querySelector('span[id^="pretext_"]');
       if (title) title.classList.add('gm-tile-title');
-      // move the hidden solicitation blurb into a hover-reveal footer
-      const blurb = b.querySelector('.display-none');
+      // move the hidden solicitation blurb into a hover-reveal footer.
       // NOTE: the qty input is ALSO .display-none (name=qsub_*). Only treat a
       // .display-none SPAN with substantial text as the blurb, never an input.
       let blurbSpan = null;
