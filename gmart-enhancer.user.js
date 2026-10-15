@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.0.0
+// @version      6.1.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -247,6 +247,35 @@
   /* keep the site's price-code colors readable in tiles (dark mode): the price
      tt stays light, sale red stays its red, title light */
   html.gm-dark .gm-tile .actiontext-price tt, html.gm-dark .gm-tile .actiontext-price a { color:#8fd0ff !important; }
+
+  /* ===== v6.1: TILE STATUS ACCENT (left border by stock/sale code) ===== */
+  /* high specificity (html + ul.gm-tiled + li + status class) so these beat
+     the base tile border-color rule in both light and dark mode */
+  html ul.gm-tiled li.gm-tile { border-left-width:4px; }
+  html ul.gm-tiled li.gm-tile.gm-st-sale   { border-left-color:#d6409f !important; }  /* SALE  — magenta  */
+  html ul.gm-tiled li.gm-tile.gm-st-green  { border-left-color:#2b8a3e !important; }  /* green — well stocked */
+  html ul.gm-tiled li.gm-tile.gm-st-yellow { border-left-color:#e0a008 !important; }  /* yellow— medium   */
+  html ul.gm-tiled li.gm-tile.gm-st-red    { border-left-color:#e03131 !important; }  /* red   — low stock */
+  html ul.gm-tiled li.gm-tile.gm-st-none   { border-left-color:#c3c8d0 !important; }  /* none  — standard */
+  html.gm-dark ul.gm-tiled li.gm-tile.gm-st-none { border-left-color:#3a3f47 !important; }
+
+  /* ===== v6.1: DARKEN the site's pale cyan header strips in dark mode ===== */
+  /* The "New Releases This Week" strip and the FAQ bar use legacy cyan
+     bgcolor (#ccffff / #e0ffff / #7df9ff). In dark mode, repaint those to a
+     dark surface with light text so they blend with the theme. Scoped to the
+     known cyan values via attribute selectors + the fixdark tag override. */
+  html.gm-dark [bgcolor="#CCFFFF" i], html.gm-dark [bgcolor="#E0FFFF" i],
+  html.gm-dark [bgcolor="#7DF9FF" i], html.gm-dark [bgcolor="#CCFFCC" i] {
+    background-color:#1e2127 !important;
+  }
+  html.gm-dark [bgcolor="#CCFFFF" i] *, html.gm-dark [bgcolor="#E0FFFF" i] *,
+  html.gm-dark [bgcolor="#7DF9FF" i] *, html.gm-dark [bgcolor="#CCFFCC" i] * {
+    color:#e3e5e8 !important;
+  }
+  html.gm-dark [bgcolor="#CCFFFF" i] a, html.gm-dark [bgcolor="#E0FFFF" i] a,
+  html.gm-dark [bgcolor="#7DF9FF" i] a, html.gm-dark [bgcolor="#CCFFCC" i] a {
+    color:#8fd0ff !important;
+  }
 
   /* ===== v6: LOGO backing panel in dark mode ===== */
   html.gm-dark img.navlogo-image {
@@ -830,6 +859,13 @@
         if (li.dataset.gmTiled) return;
         li.dataset.gmTiled = '1';
         li.classList.add('gm-tile');
+        // status accent from the site's stock/price code gif
+        let status = 'none';
+        if (li.querySelector('img[src*="button_sale"]')) status = 'sale';
+        else if (li.querySelector('img[src*="button_green"]')) status = 'green';
+        else if (li.querySelector('img[src*="button_yellow"]')) status = 'yellow';
+        else if (li.querySelector('img[src*="button_red"]')) status = 'red';
+        li.classList.add('gm-st-' + status);
         // the item's single inner span holds everything → it's the tile body
         const inner = li.querySelector(':scope > span') || li;
         inner.classList.add('gm-tile-body');
