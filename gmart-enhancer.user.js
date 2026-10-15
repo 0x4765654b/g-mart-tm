@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      5.1.0
+// @version      6.0.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -205,6 +205,54 @@
   /* owned badge */
   .gm-owned-badge { display:inline-block; font-size:10px; font-weight:700; color:#fff; background:#2b8a3e;
     border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
+
+  /* ===== v6: TILED CATALOG LAYOUT ===== */
+  /* publisher group becomes a block with a styled header + a tile grid */
+  ul.gm-tiled > li.gm-pub-group { display:block; margin:0 0 22px; }
+  /* styled publisher section header */
+  ul.gm-tiled > li.gm-pub-group > .gm-pub-head {
+    display:flex; align-items:center; gap:10px; margin:0 0 10px; padding:8px 14px;
+    background:linear-gradient(90deg,#005fb2,#2d6fd6); color:#fff; border-radius:9px;
+    font-size:15px; font-weight:700; letter-spacing:.02em; box-shadow:0 1px 4px rgba(0,0,0,.15);
+  }
+  html.gm-dark ul.gm-tiled > li.gm-pub-group > .gm-pub-head { background:linear-gradient(90deg,#1b4e86,#2d6fd6); }
+  .gm-pub-head .gm-pub-count { margin-left:auto; font-size:12px; font-weight:600; opacity:.9;
+    background:rgba(255,255,255,.22); padding:2px 9px; border-radius:999px; }
+  .gm-pub-head .gm-pub-cat { font-size:11px; font-weight:500; opacity:.8; margin-left:4px; }
+  /* the tile grid (the publisher's nested <ul>) */
+  ul.gm-tiled .gm-tile-grid { list-style:none; margin:0; padding:0; display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-items:start; }
+  /* each comic tile */
+  ul.gm-tiled li.gm-tile {
+    display:flex; flex-direction:column; background:#fff; border:1px solid #dcdfe4;
+    border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06);
+    transition:box-shadow .12s ease, transform .05s ease;
+  }
+  ul.gm-tiled li.gm-tile:hover { box-shadow:0 4px 14px rgba(0,0,0,.14); transform:translateY(-1px); }
+  html.gm-dark ul.gm-tiled li.gm-tile { background:#1e2127; border-color:#333842; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  html.gm-dark ul.gm-tiled li.gm-tile:hover { box-shadow:0 6px 18px rgba(0,0,0,.55); }
+  /* tile body: price row + title */
+  .gm-tile-body { padding:10px 12px; display:flex; flex-direction:column; gap:7px; flex:1; }
+  .gm-tile-price { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family:'SF Mono',Consolas,monospace; }
+  .gm-tile-title { font-size:13.5px; line-height:1.35; font-weight:600; color:#15181d; }
+  html.gm-dark .gm-tile-title { color:#eef0f3; }
+  .gm-tile-actions { display:flex; gap:8px; margin-top:2px; }
+  /* tile footer: the solicitation blurb / big notes */
+  .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
+    color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
+  html.gm-dark .gm-tile-foot { border-top-color:#333842; color:#aeb6c2; background:#191c21; }
+  .gm-tile-foot:empty { display:none; }
+  .gm-tile-note { color:#9a5b00; font-weight:600; display:block; margin-bottom:3px; }
+  html.gm-dark .gm-tile-note { color:#ffcf8a; }
+  /* keep the site's price-code colors readable in tiles (dark mode): the price
+     tt stays light, sale red stays its red, title light */
+  html.gm-dark .gm-tile .actiontext-price tt, html.gm-dark .gm-tile .actiontext-price a { color:#8fd0ff !important; }
+
+  /* ===== v6: LOGO backing panel in dark mode ===== */
+  html.gm-dark img.navlogo-image {
+    background:#f4f5f7; border-radius:8px; padding:4px; filter:none !important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.12);
+  }
 
   /* catalog sort dropdown */
   .gm-cat-toolbar select { padding:6px 8px; border:1px solid #cbd0d6; border-radius:7px; font-size:13px; background:#fff; cursor:pointer; }
@@ -736,8 +784,77 @@
       saveCatPrefs();
     });
 
+    // ---- v6: convert the list into a tiled layout ----
+    // Non-destructive: we add classes and wrap the per-item blurb/note into a
+    // footer, but never move the price/title/cart nodes (so cart onclick stays
+    // intact). The <ul>/<li> structure is reused — just restyled via classes.
+    tileifyCatalog(topUl, groups);
+
     apply();
     return true;
+  }
+
+  // Transform the catalog DOM into tiles. Idempotent per element.
+  function tileifyCatalog(topUl, groups) {
+    topUl.classList.add('gm-tiled');
+    groups.forEach(g => {
+      // 1. build a styled publisher header (once) from the existing label
+      if (!g.wrapper.querySelector(':scope > .gm-pub-head')) {
+        const label = g.wrapper.querySelector(':scope > span.text-size-large');
+        // the site puts a trailing text node like " (Comic Books)" right after
+        // the label — capture it as a sublabel, then remove it so it doesn't
+        // float between the header and the grid.
+        let category = '';
+        if (label) {
+          let n = label.nextSibling;
+          while (n && n.nodeType === 3 && !n.textContent.trim()) n = n.nextSibling;
+          if (n && n.nodeType === 3 && /\(.*\)/.test(n.textContent)) {
+            category = n.textContent.replace(/\s+/g, ' ').trim();
+            n.textContent = '';
+          }
+        }
+        const head = document.createElement('div');
+        head.className = 'gm-pub-head';
+        head.innerHTML = `<span class="gm-pub-name">${g.pub}</span>` +
+          (category ? `<span class="gm-pub-cat">${category}</span>` : '') +
+          `<span class="gm-pub-count">${g.items.length}</span>`;
+        // hide the original inline label text node + span, insert header on top
+        if (label) label.style.display = 'none';
+        g.wrapper.insertBefore(head, g.wrapper.firstChild);
+      }
+      // 2. the nested <ul> becomes the tile grid
+      if (g.nestedUl) g.nestedUl.classList.add('gm-tile-grid');
+      // 3. each item becomes a tile; move its blurb/note into a footer
+      g.items.forEach(it => {
+        const li = it.li;
+        if (li.dataset.gmTiled) return;
+        li.dataset.gmTiled = '1';
+        li.classList.add('gm-tile');
+        // the item's single inner span holds everything → it's the tile body
+        const inner = li.querySelector(':scope > span') || li;
+        inner.classList.add('gm-tile-body');
+        // footer = the hidden solicitation blurb (.display-none) + any cyan note
+        const foot = document.createElement('div');
+        foot.className = 'gm-tile-foot';
+        // a highlighted "big note" row (cyan) if present
+        const note = li.querySelector('[class*="background-highlight-"]');
+        if (note) {
+          const n = document.createElement('div');
+          n.className = 'gm-tile-note';
+          n.textContent = note.textContent.replace(/\s+/g, ' ').trim();
+          foot.appendChild(n);
+          note.style.display = 'none';
+        }
+        // the solicitation description, normally display:none
+        const blurb = li.querySelector('span.display-none, .display-none');
+        if (blurb && blurb.textContent.trim()) {
+          const b = document.createElement('div');
+          b.textContent = blurb.textContent.replace(/\s+/g, ' ').trim();
+          foot.appendChild(b);
+        }
+        if (foot.childNodes.length) li.appendChild(foot);
+      });
+    });
   }
 
   // ----- SEARCH FORM styler --------------------------------------------
@@ -774,8 +891,12 @@
       const ch = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
       return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
     };
-    // scope to the main content; skip our own injected UI
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced');
+    // scope to the main content; skip our own injected UI AND the catalog grid
+    // (catalog items/tiles have their own dark styling — tagging them fixdark
+    // because they contain a small cyan note-row would wrongly darken the whole
+    // tile incl. the price). The catalog's own cyan note gets handled by the
+    // tile-footer styling instead.
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
       const bg = getComputedStyle(el).backgroundColor;
