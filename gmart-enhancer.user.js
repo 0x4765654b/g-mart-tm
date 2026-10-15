@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.5.0
+// @version      6.5.1
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -291,6 +291,11 @@
   html.gm-home-enh .gm-home-cell > .div-bubblesblock-space-compact { flex:1 1 100%; }
   /* the stray <br>s between blocks are noise once we flex — hide them */
   html.gm-home-enh .gm-home-cell > br { display:none; }
+  /* v6.5.1: the desktop featured wrapper (div.mobile-display-none) sits full-
+     width under <body> while the rest of the page centers in a ~1100px column,
+     so the featured grid bled off the left edge. Center it to match. */
+  html.gm-home-enh div.mobile-display-none { max-width:1100px; margin-left:auto !important;
+    margin-right:auto !important; display:block; }
   /* tile footer: the solicitation blurb / big notes */
   .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
     color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
