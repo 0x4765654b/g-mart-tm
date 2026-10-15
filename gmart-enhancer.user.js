@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      2.0.0
-// @description  Reskin G-Mart Comics with a cleaner, readable theme + sortable/filterable subscription & pre-order management (group by type, quick-remove, live totals). Pure DOM/CSS — no API needed.
+// @version      3.0.0
+// @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
 // @run-at       document-end
@@ -129,6 +129,45 @@
   html.gm-dark #gm-panel { background:#1e2127; color:#e3e5e8; border-color:#3a3f47; }
   #gm-panel label { display:flex; align-items:center; gap:8px; margin:8px 0; cursor:pointer; }
   #gm-panel h4 { margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.05em; opacity:.7; }
+
+  /* ===== CATALOG ENHANCER (Current Issues / Back Issues / GNs / browse / search) ===== */
+  .gm-cat-toolbar { position:sticky; top:0; z-index:60; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    margin:0 0 10px; padding:10px 12px; background:#fff; border:1px solid #dcdfe4; border-radius:10px; font-size:14px; }
+  html.gm-dark .gm-cat-toolbar { background:#1e2127; border-color:#3a3f47; }
+  .gm-cat-toolbar input[type=search] { flex:1 1 240px; min-width:160px; padding:7px 10px; border:1px solid #cbd0d6; border-radius:7px; font-size:14px; }
+  html.gm-dark .gm-cat-toolbar input[type=search] { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+  .gm-cat-toolbar .gm-chip { padding:5px 10px; border:1px solid #cbd0d6; border-radius:999px; background:#f4f5f7; cursor:pointer; user-select:none; font-size:13px; white-space:nowrap; }
+  .gm-cat-toolbar .gm-chip.active { background:#005fb2; color:#fff; border-color:#005fb2; }
+  html.gm-dark .gm-cat-toolbar .gm-chip { background:#262a31; color:#cfd3d8; border-color:#3a3f47; }
+  html.gm-dark .gm-cat-toolbar .gm-chip.active { background:#2d6fd6; color:#fff; }
+  .gm-cat-count { font-weight:600; margin-left:auto; white-space:nowrap; }
+
+  /* price/stock legend */
+  .gm-legend { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 10px; padding:8px 12px;
+    background:#fbfbfd; border:1px solid #e3e5e8; border-radius:10px; font-size:12px; }
+  html.gm-dark .gm-legend { background:#191c21; border-color:#2b2f36; color:#cfd3d8; }
+  .gm-legend .gm-leg-item { display:inline-flex; align-items:center; gap:5px; }
+  .gm-legend .gm-dot { width:12px; height:12px; border-radius:3px; display:inline-block; border:1px solid rgba(0,0,0,.25); }
+
+  /* publisher jump-nav */
+  .gm-pubnav { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; padding:8px 12px; background:#fff; border:1px solid #dcdfe4; border-radius:10px; max-height:92px; overflow:auto; }
+  html.gm-dark .gm-pubnav { background:#1e2127; border-color:#3a3f47; }
+  .gm-pubnav a { font-size:12px; padding:3px 8px; border-radius:6px; background:#eef0f3; color:#111 !important; text-decoration:none !important; white-space:nowrap; }
+  .gm-pubnav a:hover { background:#dce3ec; }
+  html.gm-dark .gm-pubnav a { background:#262a31; color:#cfd3d8 !important; }
+
+  /* hidden rows (filter / hide-owned / deals-only) */
+  li.gm-cat-hidden, .gm-pub-group.gm-cat-hidden { display:none !important; }
+
+  /* density: compact mode shrinks catalog images + tightens spacing */
+  html.gm-cat-compact ul.ul-none li img[src*="comic"],
+  html.gm-cat-compact ul.ul-none li img[alt*="cover"i] { max-height:28px !important; width:auto !important; }
+  html.gm-cat-compact ul.ul-none > li > ul > li { line-height:1.15; padding:1px 0; }
+  html.gm-cat-compact ul.ul-none > li > ul > li br { display:none; }
+
+  /* owned badge */
+  .gm-owned-badge { display:inline-block; font-size:10px; font-weight:700; color:#fff; background:#2b8a3e;
+    border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
   `;
 
   GM_addStyle(THEME_CSS);
@@ -388,8 +427,179 @@
     return true;
   }
 
+  // ----- series-name helpers -------------------------------------------
+  // Reduce a catalog/subscription title to a comparable "series" key:
+  // drop the leading ▶, price codes, issue number, "(Cover ...)", vol, etc.
+  function seriesKey(raw) {
+    let s = (raw || '').replace(/^[\s▶►*]+/, '');
+    s = s.replace(/\*+\$?\s*[\d.]+(\s*save\s*\d+%)?/gi, ''); // strip leading price code
+    s = s.split('▶').pop();                                 // after marker if still present
+    s = s.replace(/\(.*?\)/g, '');                           // drop (Cover A - ...), (SC), (series 6)
+    s = s.replace(/\b(?:#?\d+|no\.?\s*\d+|vol\.?\s*\d+)\b.*$/i, ''); // drop issue/vol number and trailing
+    s = s.replace(/[:#].*$/, '');                            // drop subtitle after : or #
+    return s.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  // When on the subscriptions page, remember the user's series names so the
+  // catalog "hide owned" filter can use them on other pages. Persisted via GM.
+  function captureOwnedTitles(didList) {
+    const info = detectList();
+    if (!info || info.kind !== 'subs') return;
+    const names = info.inputs.map(inp => {
+      const tds = [...inp.closest('tr').children].filter(c => c.tagName === 'TD');
+      return seriesKey(tds[1]?.innerText || '');
+    }).filter(Boolean);
+    if (names.length) GM_setValue('gm_owned', JSON.stringify([...new Set(names)]));
+  }
+
+  function getOwnedSet() {
+    try { return new Set(JSON.parse(GM_getValue('gm_owned', '[]'))); }
+    catch (e) { return new Set(); }
+  }
+
+  // ----- CATALOG ENHANCER ----------------------------------------------
+  function enhanceCatalog() {
+    // catalog pages have a <ul class="ul-none"> whose children include
+    // publisher-group <li> (span.text-size-large > strong) each wrapping a
+    // nested <ul> of comic <li> items with quick-add cart handlers.
+    const uls = [...document.querySelectorAll('ul.ul-none')];
+    const topUl = uls.find(ul => ul.querySelector(':scope > li > span.text-size-large > strong')
+      && /quick_add|quick_remove/.test(ul.innerHTML));
+    if (!topUl || topUl.dataset.gmCat) return false;
+    topUl.dataset.gmCat = '1';
+
+    // collect publisher groups + their items
+    const groups = [];
+    [...topUl.children].forEach(li => {
+      const strong = li.querySelector(':scope > span.text-size-large > strong');
+      if (!strong) return;
+      const nestedUl = li.querySelector(':scope > ul');
+      if (!nestedUl) return;
+      li.classList.add('gm-pub-group');
+      const pub = strong.innerText.trim();
+      const safeId = 'gm-pub-' + pub.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      li.id = safeId;
+      const items = [...nestedUl.children].filter(x => x.tagName === 'LI').map(it => {
+        // The TITLE lives in a dedicated span starting with ▶ (class
+        // "onclick-cursor"), containing ONLY the title — NOT the price code
+        // and NOT the long solicitation blurb that is also inside the <li>.
+        // Using it.innerText would pull in the entire description paragraph
+        // and break series matching, so we target the title span directly.
+        let titleSpan = it.querySelector('span.onclick-cursor');
+        if (!titleSpan) titleSpan = [...it.querySelectorAll('span')]
+          .find(s => s.textContent.trim().startsWith('▶') && s.children.length <= 1);
+        const titlePart = (titleSpan ? titleSpan.textContent : it.innerText)
+          .replace(/^[\s▶►]+/, '').replace(/\s+/g, ' ').trim();
+        // deals: the price code / sale badge live elsewhere in the <li>
+        const priceEl = it.querySelector('.actiontext-price');
+        const priceTxt = (priceEl ? priceEl.textContent : '');
+        const onSale = !!it.querySelector('img[src*="button_sale"], img[alt="SALE"]');
+        const hasDeal = /save\s*\d+%/i.test(it.innerText) || onSale;
+        it.classList.add('gm-cat-item');
+        return { li: it, title: titlePart.trim(), series: seriesKey(titlePart), hasDeal };
+      });
+      groups.push({ wrapper: li, pub, safeId, items });
+    });
+    if (!groups.length) return false;
+
+    const totalItems = groups.reduce((n, g) => n + g.items.length, 0);
+
+    // ---- legend (decoded from the site's FAQ: stock/price color codes) ----
+    const legend = document.createElement('div');
+    legend.className = 'gm-legend';
+    legend.innerHTML =
+      '<strong>Price/stock:</strong>' +
+      '<span class="gm-leg-item"><span class="gm-dot" style="background:#2b8a3e"></span>green = well stocked, best price</span>' +
+      '<span class="gm-leg-item"><span class="gm-dot" style="background:#f2c200"></span>yellow = medium stock</span>' +
+      '<span class="gm-leg-item"><span class="gm-dot" style="background:#e03131"></span>red = low stock (last copies priced higher)</span>' +
+      '<span class="gm-leg-item"><span class="gm-dot" style="background:#fff"></span>none = standard</span>' +
+      '<span class="gm-leg-item">★ SALE = discounted</span>' +
+      '<span class="gm-leg-item">* / ** = price tier (more * = higher)</span>';
+
+    // ---- publisher jump-nav ----
+    const pubnav = document.createElement('div');
+    pubnav.className = 'gm-pubnav';
+    groups.forEach(g => {
+      const a = document.createElement('a');
+      a.href = '#' + g.safeId;
+      a.textContent = `${g.pub} (${g.items.length})`;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById(g.safeId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      pubnav.appendChild(a);
+    });
+
+    // ---- toolbar ----
+    const toolbar = document.createElement('div');
+    toolbar.className = 'gm-cat-toolbar';
+    toolbar.innerHTML =
+      '<input type="search" id="gm-cat-search" placeholder="Filter titles on this page…">' +
+      '<span class="gm-chip" id="gm-cat-deals">Deals only</span>' +
+      '<span class="gm-chip" id="gm-cat-hideowned">Hide titles I get</span>' +
+      '<span class="gm-chip" id="gm-cat-density">Compact</span>' +
+      '<span class="gm-cat-count" id="gm-cat-count"></span>';
+
+    // insert toolbar + legend + pubnav above the catalog
+    topUl.parentNode.insertBefore(toolbar, topUl);
+    topUl.parentNode.insertBefore(legend, topUl);
+    topUl.parentNode.insertBefore(pubnav, topUl);
+
+    const search = toolbar.querySelector('#gm-cat-search');
+    const dealsChip = toolbar.querySelector('#gm-cat-deals');
+    const ownedChip = toolbar.querySelector('#gm-cat-hideowned');
+    const densityChip = toolbar.querySelector('#gm-cat-density');
+    const countEl = toolbar.querySelector('#gm-cat-count');
+
+    const owned = getOwnedSet();
+    // badge owned items up front
+    if (owned.size) {
+      groups.forEach(g => g.items.forEach(it => {
+        if (owned.has(it.series)) {
+          const b = document.createElement('span'); b.className = 'gm-owned-badge'; b.textContent = 'SUBSCRIBED';
+          it.li.querySelector('span')?.appendChild(b);
+          it.owned = true;
+        }
+      }));
+    }
+    // if we have no owned list yet, disable that chip with a hint
+    if (!owned.size) { ownedChip.style.opacity = '.5'; ownedChip.title = 'Visit "Your Subscriptions" once so the script can learn your titles'; }
+
+    let dealsOnly = false, hideOwned = false;
+
+    function apply() {
+      const q = search.value.trim().toLowerCase();
+      let shown = 0;
+      groups.forEach(g => {
+        let groupShown = 0;
+        g.items.forEach(it => {
+          let hide = false;
+          if (q && !it.title.toLowerCase().includes(q)) hide = true;
+          if (dealsOnly && !it.hasDeal) hide = true;
+          if (hideOwned && it.owned) hide = true;
+          it.li.classList.toggle('gm-cat-hidden', hide);
+          if (!hide) { groupShown++; shown++; }
+        });
+        // hide the whole publisher group (and its jump-nav entry) if empty
+        g.wrapper.classList.toggle('gm-cat-hidden', groupShown === 0);
+      });
+      countEl.textContent = `${shown} of ${totalItems} shown`;
+    }
+
+    search.addEventListener('input', apply);
+    dealsChip.addEventListener('click', () => { dealsOnly = !dealsOnly; dealsChip.classList.toggle('active', dealsOnly); apply(); });
+    ownedChip.addEventListener('click', () => { if (!owned.size) return; hideOwned = !hideOwned; ownedChip.classList.toggle('active', hideOwned); apply(); });
+    densityChip.addEventListener('click', () => {
+      const on = document.documentElement.classList.toggle('gm-cat-compact');
+      densityChip.classList.toggle('active', on);
+    });
+
+    apply();
+    return true;
+  }
+
   // ----- boot -----------------------------------------------------------
-  function boot() { buildGear(); enhanceList(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
