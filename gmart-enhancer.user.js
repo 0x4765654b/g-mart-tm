@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.13.0
+// @version      6.14.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -174,6 +174,9 @@
 
   html.gm-enh table.gm-subs-enhanced tbody tr.gm-item:nth-of-type(even) { background:rgba(0,0,0,.03); }
   html.gm-dark table.gm-subs-enhanced tbody tr.gm-item:nth-of-type(even) { background:rgba(255,255,255,.04); }
+  /* v6.14: the site's light-grey invoice header cells (Subscriptions, Pre-Orders,
+     Cart) got the global light dark-mode text but kept their pale background. */
+  html.gm-dark th.invoicebasic-td-section { background:#2a3038 !important; color:#e3e5e8 !important; }
   table.gm-subs-enhanced tbody tr.gm-item:hover { background:#eaf2ff; }
   html.gm-dark table.gm-subs-enhanced tbody tr.gm-item:hover { background:#243247; }
 
@@ -266,6 +269,12 @@
     gap:12px; align-items:start; list-style:none; margin:10px 0; padding:0; }
   @media (max-width:900px) { html.gm-po .gm-po-grid { grid-template-columns:repeat(2,1fr); } }
   @media (max-width:560px) { html.gm-po .gm-po-grid { grid-template-columns:1fr; } }
+  /* v6.14: per-item wrappers grouped by enhancePreorderCatalog — let the tile
+     inside each wrapper be the grid item. */
+  html.gm-po .gm-po-runs > div { display:contents; }
+  /* the tile is a flex column, which stretched PRE-ORDER/SUBSCRIBE to full width */
+  html.gm-po .gm-po-tile > [class*="actiontext"],
+  html.gm-po .gm-po-tile > * > [class*="actiontext"] { align-self:flex-start; width:auto; display:inline-block; }
   html.gm-po .gm-po-tile { display:flex; flex-direction:column; background:#fff;
     border:1px solid #dcdfe4; border-radius:10px; padding:10px 12px;
     box-shadow:0 1px 3px rgba(0,0,0,.06); }
@@ -329,10 +338,40 @@
      are tagged by gmFixContrast; in dark mode make those tagged light strips a
      muted dark surface with light text instead of glaring teal slabs. This is
      scoped to the subs hub via gm-subshub so it does not touch catalog tiles. */
-  html.gm-dark.gm-subshub .gm-fixdark { background:#1f242b !important; }
+  /* v6.14: the v6.13 rules lost to the generic .gm-fixdark dark-text rule on
+     specificity (and to gmFixContrast's inline navy links), so text stayed
+     #111 on the darkened panels. These carry the extra .gm-subshub class so
+     they win; gmFixContrast no longer inlines link colors on the hub, and the
+     menu-bearing teal panel it skips is tagged .gm-hubsurface instead. */
   html.gm-dark.gm-subshub .gm-fixdark,
-  html.gm-dark.gm-subshub .gm-fixdark :not(a) { color:#d7dbe2 !important; }
-  html.gm-dark.gm-subshub .gm-fixdark a { color:#9ec5ff !important; }
+  html.gm-dark.gm-subshub .gm-hubsurface { background:#1f242b !important; }
+  html.gm-dark.gm-subshub .gm-fixdark,
+  html.gm-dark.gm-subshub .gm-fixdark *:not(a):not(.gm-chip):not(.gm-rel-btn):not(.gm-cat-count) { color:#d7dbe2 !important; }
+  html.gm-dark.gm-subshub .gm-fixdark a:not(.x):not(.y):not(.z),
+  html.gm-dark.gm-subshub .gm-hubsurface a:not(.x):not(.y):not(.z) { color:#9ec5ff !important; }
+  html.gm-dark.gm-subshub [class*="highlight-text-gray"] { background:#3a414b !important; color:#e8eaed !important; }
+  /* ===== v6.14: remaining dark-mode contrast fixes ===== */
+  /* the BLACK "save NN%" badge variant was caught by the v6.13 dark-ink rule */
+  html.gm-dark [class*="bubbleblock-sale-black"]:not(.x),
+  html.gm-dark [class*="bubbleblock-sale-black"] *:not(.x) { color:#fff !important; }
+  /* ratio / variant tags ("1:25", "variant", "exceed") sit on the site's bright
+     cyan highlight; they inherited the light dark-mode text (~1.1:1) */
+  html.gm-dark [class*="highlight-text-comic-map"]:not(.x):not(.y) { color:#0b2530 !important; }
+  /* header cart / want-list bubbles keep their light surface in dark mode, so
+     the outline heart stays dark there (it's forced white elsewhere) and the
+     filled cart's "N items, $X" label gets dark ink on its salmon bubble */
+  html.gm-dark img[src*="Heart.svg"]:not([src*="Filled"]):not([src*="red"]) { filter:brightness(0) invert(1) !important; }
+  html.gm-dark [class*="navcart"] img[src*="Heart.svg"] { filter:none !important; }
+  html.gm-dark [class*="navcart"]:not([class*="empty"]) .navcart-text:not(.x) { color:#1a1a1a !important; }
+  /* featured cards are now left to the home rules (gmFixContrast skips them),
+     whose blanket light text also hit the bright badges inside them */
+  html.gm-dark.gm-home-enh td.home-preorder-cell [class*="bubbleblock-sale"]:not([class*="black"]),
+  html.gm-dark.gm-home-enh td.home-preorder-cell [class*="bubbleblock-sale"]:not([class*="black"]) *,
+  html.gm-dark.gm-home-enh td.home-preorder-cell .gm-home-ink,
+  html.gm-dark td.hometd-sale-text, html.gm-dark td.hometd-sale-text * { color:#1a1300 !important; }
+  /* Customer Information: the site's dark red / purple labels on a dark surface */
+  html.gm-dark .highlight-text-inventory-quantity-red { color:#ff8a8a !important; }
+  html.gm-dark font[color="purple" i], html.gm-dark font[color="#800080" i] { color:#d9a0ff !important; }
   /* #4 HOME TILE TITLE WRAP: the featured-cell title still clipped in some
      cells. Broaden the wrap rule to the title link + any inner span, not just
      strong/nobr, so long titles wrap instead of being cut at the tile edge. */
@@ -649,6 +688,7 @@
     if (S.reskin && S.darkMode) {
       if (typeof gmFixContrast === 'function') gmFixContrast();
     } else {
+      document.querySelectorAll('.gm-hubsurface').forEach(e => e.classList.remove('gm-hubsurface'));
       document.querySelectorAll('.gm-fixdark').forEach(e => {
         e.classList.remove('gm-fixdark');
         e.querySelectorAll('a[data-gm-prev-color]').forEach(a => {
@@ -742,7 +782,13 @@
     const colKey = { 0: 'qty', 1: 'title' };
     colKey[info.priceIdx] = 'price';
     if (info.typeIdx != null) colKey[info.typeIdx] = 'type';
-    headCells.forEach((th, i) => {
+    // v6.14: map header cells to item-row columns by colspan, not position —
+    // the Pre-Orders "Unit Price" header spans 2 columns (price + save $), so
+    // "Total Price" is header cell 3 but sits over item column 4.
+    let col = 0;
+    headCells.forEach(th => {
+      const i = col;
+      col += Math.max(1, parseInt(th.getAttribute('colspan'), 10) || 1);
       if (colKey[i]) {
         th.classList.add('gm-sortable');
         th.dataset.k = colKey[i];
@@ -1305,7 +1351,17 @@
     // (#0a3d8f) on the links that is unreadable on the dark menu surface and
     // beats the stylesheet rule (inline wins). Skipping them here leaves the
     // readable light-blue rule in charge.
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
+    // v6.14: on the Subscriptions hub the pale panels are darkened by CSS
+    // instead (see .gm-subshub rules), so don't force navy links there, and
+    // tag the menu-bearing panels that are skipped below as .gm-hubsurface.
+    const hub = document.documentElement.classList.contains('gm-subshub');
+    // the early pass (applyThemeFlags, before tagHeaderAndHub ran) may already
+    // have inlined navy on hub links — undo that.
+    if (hub) document.querySelectorAll('a[data-gm-prev-color]').forEach(a => {
+      a.style.color = a.dataset.gmPrevColor || '';
+      delete a.dataset.gmPrevColor;
+    });
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,td.home-preorder-cell,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
       // v6.11 #4 (root-cause): never tag a header button/cell that CONTAINS a
@@ -1314,7 +1370,10 @@
       // unreadable navy and beats the dark-menu rule. Leaving these untagged
       // keeps the menu links light-blue. (The header button's own label is
       // white-on-cyan native styling, which stays readable without tagging.)
-      if (el.querySelector('[class*="menu-dropdown"],[class*="dropdown-menu"]')) return;
+      if (el.querySelector('[class*="menu-dropdown"],[class*="dropdown-menu"]')) {
+        if (hub && el.matches('div[class*="div-bubble"]')) el.classList.add('gm-hubsurface');
+        return;
+      }
       // v6.12: also never tag an ancestor that wraps the pre-orders tile grid —
       // tagging it repaints every tile's text near-black via .gm-fixdark.
       if (el.querySelector('.gm-po-grid')) return;
@@ -1326,6 +1385,7 @@
       const [r, g, b] = m.map(Number);
       if (lum(r, g, b) > 0.6) {
         el.classList.add('gm-fixdark');                        // light surface
+        if (hub) return;                                       // v6.14: CSS darkens the hub
         // Inline-style any links inside — inline wins over the high-specificity
         // global dark-mode link rule (which otherwise keeps them light-blue on
         // this pale strip). Record the original so we can undo on toggle-off.
@@ -1365,6 +1425,8 @@
       td.dataset.gmHome = '1';
       // discount / sale badges pop (add class only — no DOM move)
       td.querySelectorAll('.div-bubbleblock-sale-verycompact, [class*="homebutton-sale"], .actiontext-discount').forEach(b => b.classList.add('gm-home-badge'));
+      // v6.14: the "SOLD OUT" chip keeps its white surface — give it dark ink
+      td.querySelectorAll('strong, span').forEach(e => { if (/^SOLD OUT$/i.test(e.textContent.trim())) e.classList.add('gm-home-ink'); });
       // v6.5: per-cell card via CSS flex ONLY (no DOM moves). Tag the visible
       // desktop cell box (_4) and its cover anchor so CSS can place the cover
       // on the left with flex `order` — purely visual, nothing is relocated,
@@ -1447,7 +1509,7 @@
     for (const e of cands) {
       if (e.children.length > 2) continue;
       const t = (e.textContent || '').trim();
-      if (/^\u25bc?\s*#\d{3,}\b/.test(t) && t.length < 48) { e.classList.add('gm-acct-name'); break; }
+      if (/^\u25bc?\s*(#\d{3,}\b|Guest$)/.test(t) && t.length < 48) { e.classList.add('gm-acct-name'); break; }
     }
     // subscriptions hub: the page whose body names the hub + the pre-orders rows
     const txt = document.body ? document.body.innerText : '';
@@ -1481,11 +1543,31 @@
     const isPO = [...document.querySelectorAll('input[type=submit]')]
       .some(b => /record orders/i.test(b.value || ''));
     if (!isPO) return false;
-    const container = bubbles[0].parentElement;
-    if (!container || container.dataset.gmPo) return false;
-    container.dataset.gmPo = '1';
+    // v6.14: publisher browse pages wrap EACH bubble in its own
+    // div.div-bubbles-space-compact-clear, with publisher headings between
+    // runs of them. Tiling only bubbles[0].parentElement made a 1-tile grid and
+    // left every other item full-width. Instead, gather each run of adjacent
+    // single-bubble wrappers into one grid (headings stay between grids). The
+    // wrappers move but stay inside the same <form>, so Record Orders is unaffected.
+    if (document.querySelector('.gm-po-grid')) return false;
     document.documentElement.classList.add('gm-po');
-    container.classList.add('gm-tiled', 'gm-tile-grid', 'gm-po-grid');
+    const wrappers = [...new Set(bubbles.map(b => b.parentElement))];
+    const perItem = wrappers.length > 1 && wrappers.every(w =>
+      w.querySelectorAll(':scope > div[id^="bubble_"]').length === 1);
+    if (!perItem) {
+      wrappers[0].classList.add('gm-tiled', 'gm-tile-grid', 'gm-po-grid');
+    } else {
+      let grid = null, last = null;
+      wrappers.forEach(w => {
+        if (!grid || last.nextElementSibling !== w) {
+          grid = document.createElement('div');
+          grid.className = 'gm-tiled gm-tile-grid gm-po-grid gm-po-runs';
+          w.parentNode.insertBefore(grid, w);
+        }
+        grid.appendChild(w);
+        last = grid;
+      });
+    }
     bubbles.forEach(b => {
       if (b.dataset.gmPoTile) return;
       b.dataset.gmPoTile = '1';
