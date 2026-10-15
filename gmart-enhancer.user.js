@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.6.0
+// @version      6.7.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -275,6 +275,61 @@
     font-weight:700; font-size:14px; padding:8px 14px; border-radius:8px; margin:14px 0 10px; }
   html.gm-home-enh .gm-home-section a { color:#dbeafe !important; font-weight:500; }
   html.gm-dark .gm-home-section { background:linear-gradient(90deg,#152a63,#1b3a82); }
+  /* ===== v6.7: ACCOUNT & FORM pages ===== */
+  /* Form fields — consistent, readable, dark-mode-safe. Scoped to gm-account
+     so catalog/home/subs forms are untouched. We never set values. */
+  html.gm-account.gm-enh form input[type=text],
+  html.gm-account.gm-enh form input[type=email],
+  html.gm-account.gm-enh form input[type=tel],
+  html.gm-account.gm-enh form input[type=number],
+  html.gm-account.gm-enh form input[type=password],
+  html.gm-account.gm-enh form select {
+    padding:7px 10px; border:1px solid #cbd0d6; border-radius:7px; font-size:14px;
+    background:#fff; color:#15181d; box-sizing:border-box; max-width:100%; margin:2px 0; }
+  html.gm-dark.gm-account.gm-enh form input[type=text],
+  html.gm-dark.gm-account.gm-enh form input[type=email],
+  html.gm-dark.gm-account.gm-enh form input[type=tel],
+  html.gm-dark.gm-account.gm-enh form input[type=number],
+  html.gm-dark.gm-account.gm-enh form input[type=password],
+  html.gm-dark.gm-account.gm-enh form select {
+    background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+  html.gm-account.gm-enh form input:focus,
+  html.gm-account.gm-enh form select:focus {
+    outline:none; border-color:#2d6fd6; box-shadow:0 0 0 2px rgba(45,111,214,.28); }
+  html.gm-account.gm-enh form input[disabled] { opacity:.6; }
+  /* fieldsets become clean carded sections */
+  html.gm-account.gm-enh fieldset[class*="div-input-label-error-fieldset"],
+  html.gm-account.gm-enh fieldset {
+    border:1px solid #e2e5ea; border-radius:10px; padding:12px 14px; margin:12px 0; }
+  html.gm-dark.gm-account.gm-enh fieldset { border-color:#2a2e35; background:#191c21; }
+  html.gm-account.gm-enh fieldset > legend {
+    font-size:12px; text-transform:uppercase; letter-spacing:.05em; font-weight:700;
+    opacity:.75; padding:0 6px; }
+  html.gm-account.gm-enh form label { font-size:13px; }
+  /* buttons: keep the native blue CTA prominent, soften the light-gray helpers */
+  html.gm-account.gm-enh input.submit-call-to-action-blue,
+  html.gm-account.gm-enh input[type=submit][value*="Save"] {
+    padding:9px 18px; border:none; border-radius:8px; background:#005fb2; color:#fff;
+    font-size:14px; font-weight:600; cursor:pointer; }
+  html.gm-account.gm-enh input.submit-call-to-action-blue:hover,
+  html.gm-account.gm-enh input[type=submit][value*="Save"]:hover { background:#004a8c; }
+  html.gm-account.gm-enh button.button-lightgrayed {
+    padding:6px 12px; border:1px solid #cbd0d6; border-radius:7px; background:#f4f5f7;
+    color:#15181d; font-size:13px; cursor:pointer; }
+  html.gm-dark.gm-account.gm-enh button.button-lightgrayed {
+    background:#2a2e35; color:#e3e5e8; border-color:#3a3f47; }
+  /* ===== v6.7: DATA TABLES (Account Balance, Your Shipments, Items Ready) ===== */
+  html.gm-account.gm-enh table.gm-data-table { border-collapse:collapse; width:100%;
+    max-width:900px; margin:10px 0; font-size:13.5px; }
+  html.gm-account.gm-enh table.gm-data-table td,
+  html.gm-account.gm-enh table.gm-data-table th {
+    padding:7px 12px; border-bottom:1px solid #e2e5ea; text-align:left; }
+  html.gm-dark.gm-account.gm-enh table.gm-data-table td,
+  html.gm-dark.gm-account.gm-enh table.gm-data-table th { border-bottom-color:#2a2e35; }
+  html.gm-account.gm-enh table.gm-data-table tr:nth-child(even) td { background:rgba(0,0,0,.025); }
+  html.gm-dark.gm-account.gm-enh table.gm-data-table tr:nth-child(even) td { background:rgba(255,255,255,.03); }
+  /* right-align any cell that is purely a dollar amount */
+  html.gm-account.gm-enh table.gm-data-table td[align="right"] { text-align:right; font-variant-numeric:tabular-nums; }
   /* ===== v6.6: HOME featured items — centered 3-up grid + per-cell cards =====
      The desktop featured wrapper (div.mobile-display-none) is natively full-
      width while the rest of the page centers in ~1100px, and its inner tables
@@ -1093,7 +1148,40 @@
     return true;
   }
   // ----- boot -----------------------------------------------------------
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); styleSearchForm(); gmFixContrast(); }
+  // ===== v6.7: ACCOUNT & FORM pages (Customer Information, Account Balance,
+  // Your Shipments, Items Ready for Shipping, Contact Us) =====
+  // These are plain legacy forms + data tables with no catalog/preorder
+  // structure. We ONLY add marker classes (no DOM restructuring) so CSS can
+  // style form fields, fieldsets, submit buttons, and data tables. Detection
+  // is structural: a real account form has the fieldset background class or
+  // the blue CTA submit; a data-table page has multi-row tables and no
+  // catalog. We never touch field values (PII-safe).
+  function enhanceAccountPages() {
+    const hasAccountForm = !!document.querySelector(
+      'fieldset[class*="div-input-label-error-fieldset"], input.submit-call-to-action-blue'
+    );
+    // data-table pages: a store page that is NOT catalog/home/subs and has a
+    // multi-row data table (Account Balance, Your Shipments, Items Ready).
+    const isCatalog = !!document.querySelector('ul.ul-none [onclick*="quick_add"]');
+    const isHome = !!document.querySelector('td.home-preorder-cell');
+    const isSubs = !!document.querySelector('input[name^="x"], input[name^="q"]');
+    if (hasAccountForm) document.documentElement.classList.add('gm-account');
+    if (!hasAccountForm && !isCatalog && !isHome && !isSubs) {
+      // tag likely data tables (3+ rows, not nav) for styling
+      const tables = [...document.querySelectorAll('table')].filter(t =>
+        t.querySelectorAll(':scope tr').length >= 3 &&
+        !t.querySelector('.nav, [class*="navtab"], [class*="navbutton"]'));
+      if (tables.length) {
+        document.documentElement.classList.add('gm-account');
+        tables.forEach(t => {
+          if (/\$|owe|balance|ship|track|credit|charge/i.test(t.textContent)) t.classList.add('gm-data-table');
+        });
+      }
+    }
+    return true;
+  }
+
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); styleSearchForm(); gmFixContrast(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
