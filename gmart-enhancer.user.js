@@ -141,7 +141,7 @@
   table.gm-subs-enhanced tbody tr:nth-child(even) { background:rgba(0,0,0,.03); }
   html.gm-dark table.gm-subs-enhanced tbody tr:nth-child(even) { background:rgba(255,255,255,.04); }
   table.gm-subs-enhanced tbody tr:hover { background:#eaf2ff; }
-  html.gm-dark table.gm-subs-enhanced tbody tr:hover { background:#2a3champ; background:#243247; }
+  html.gm-dark table.gm-subs-enhanced tbody tr:hover { background:#243247; }
   table.gm-subs-enhanced td { padding:7px 10px; border-bottom:1px solid #e6e8eb; }
   html.gm-dark table.gm-subs-enhanced td { border-color:#2b2f36; }
   .gm-group-header td {
@@ -223,7 +223,7 @@
     const tds = [...tr.children].filter(c => c.tagName === 'TD');
     // Expected layout: [qty input][title][price][type]
     const input = tr.querySelector('input[name^="x"]');
-    if (!input || tds.length < 2) return null;
+    if (!input || !/^x\d+$/.test(input.name) || tds.length < 2) return null;
     const title = (tds[1]?.innerText || '').trim();
     const priceText = (tds[2]?.innerText || '').trim();
     const price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
@@ -239,19 +239,29 @@
     table.dataset.gmEnhanced = '1';
     table.classList.add('gm-subs-enhanced');
 
-    // collect data rows
+    // collect ONLY the subscription rows (rows carrying an x#### qty input).
+    // The table's tbody also holds non-subscription rows (totals, the
+    // Save/Cancel button row, section separators) — we must NOT reorder those.
     const bodyRows = [...table.querySelectorAll('tr')]
       .map(parseRow).filter(Boolean);
     if (!bodyRows.length) return false;
 
+    // The subscription rows live inside a <tbody>, and are NOT direct children
+    // of <table>. Use the row's actual parent (tbody) as the insertion anchor,
+    // and keep the first sub row as the positional anchor so our header + the
+    // reordered block stay exactly where the subscription list already is.
+    const subParent = bodyRows[0].tr.parentElement; // the <tbody>
+    const firstSubRow = bodyRows[0].tr;
+
     // ---- header row (sortable) ----
     const headTr = document.createElement('tr');
+    headTr.className = 'gm-subs-head';
     headTr.innerHTML = `
       <th data-k="qty">Qty</th>
       <th data-k="title">Title<span class="gm-arrow"></span></th>
       <th data-k="price">Price<span class="gm-arrow"></span></th>
       <th data-k="type">Type<span class="gm-arrow"></span></th>`;
-    table.insertBefore(headTr, bodyRows[0].tr);
+    subParent.insertBefore(headTr, firstSubRow);
 
     // ---- toolbar (search + group + summary) injected above the table ----
     const toolbar = document.createElement('div');
@@ -299,8 +309,11 @@
         });
       }
 
-      // re-append in order (keeps the real inputs intact)
+      // Re-insert the subscription block in order, right after our header row,
+      // WITHOUT moving any other rows in the tbody (totals, Save button, etc.).
+      // We keep the real <input> elements intact so "Save Changes" still works.
       clearGroupHeaders();
+      let prev = headTr;
       if (grouped) {
         const groups = {};
         visible.forEach(r => { (groups[r.type] = groups[r.type] || []).push(r); });
@@ -308,11 +321,11 @@
           const gh = document.createElement('tr');
           gh.className = 'gm-group-header';
           gh.innerHTML = `<td colspan="4">${type} (${groups[type].length})</td>`;
-          table.appendChild(gh);
-          groups[type].forEach(r => table.appendChild(r.tr));
+          subParent.insertBefore(gh, prev.nextSibling); prev = gh;
+          groups[type].forEach(r => { subParent.insertBefore(r.tr, prev.nextSibling); prev = r.tr; });
         });
       } else {
-        visible.forEach(r => table.appendChild(r.tr));
+        visible.forEach(r => { subParent.insertBefore(r.tr, prev.nextSibling); prev = r.tr; });
       }
 
       // sort arrows
