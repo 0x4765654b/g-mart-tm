@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.5.1
+// @version      6.6.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -275,27 +275,39 @@
     font-weight:700; font-size:14px; padding:8px 14px; border-radius:8px; margin:14px 0 10px; }
   html.gm-home-enh .gm-home-section a { color:#dbeafe !important; font-weight:500; }
   html.gm-dark .gm-home-section { background:linear-gradient(90deg,#152a63,#1b3a82); }
-  /* ===== v6.5: per-cell card via CSS flex ONLY (cover left, text right) =====
-     No DOM is moved — we flex the existing cell and use CSS order to pull the
-     cover (which sits last in source) to the left. Scoped to the single cell,
-     so cells never affect each other → no overlap. */
+  /* ===== v6.6: HOME featured items — centered 3-up grid + per-cell cards =====
+     The desktop featured wrapper (div.mobile-display-none) is natively full-
+     width while the rest of the page centers in ~1100px, and its inner tables
+     are fixed 4-up and too wide. We center the wrapper and turn it into a real
+     3-column grid by flattening the native tables with display:contents (safe
+     here: ONE grid on the wrapper, we are NOT moving cells between tables).
+     Each cell becomes a cover-left card; titles wrap inside the card. */
+  html.gm-home-enh div.mobile-display-none { max-width:1140px; margin-left:auto !important;
+    margin-right:auto !important; display:grid !important;
+    grid-template-columns:repeat(3,1fr); gap:12px; }
+  /* flatten the native nested tables so the cells are direct grid items */
+  html.gm-home-enh div.mobile-display-none table.home-preorder-table,
+  html.gm-home-enh div.mobile-display-none table.home-preorder-table > tbody,
+  html.gm-home-enh div.mobile-display-none tr.home-preorder-row { display:contents !important; }
+  /* each featured cell = a card */
+  html.gm-home-enh td.home-preorder-cell { display:block !important; width:auto !important;
+    max-width:100% !important; box-sizing:border-box; overflow:hidden; padding:8px 10px;
+    border:1px solid #e2e5ea; border-radius:8px; vertical-align:top; }
+  html.gm-dark.gm-home-enh td.home-preorder-cell { border-color:#2a2e35; }
+  /* per-cell flex: cover left (via CSS order), text beside/below it */
   html.gm-home-enh .gm-home-cell { display:flex; flex-wrap:wrap; align-items:flex-start;
-    column-gap:10px; row-gap:2px; }
-  /* cover: left column, pulled ahead of the text, de-floated */
+    column-gap:10px; row-gap:2px; overflow-wrap:anywhere; }
   html.gm-home-enh .gm-home-cell > .gm-home-cover { order:-1; float:none !important;
     flex:0 0 auto; align-self:flex-start; margin:0 !important; }
   html.gm-home-enh .gm-home-cell > .gm-home-cover img { float:none !important; display:block;
-    width:64px; height:auto; border-radius:4px; }
-  /* everything else shares the remaining row space (title/price/blurb stack) */
-  html.gm-home-enh .gm-home-cell > span.text-size-medium { flex:1 1 60%; min-width:0; font-size:13px; line-height:1.3; }
+    width:60px; height:auto; border-radius:4px; }
+  html.gm-home-enh .gm-home-cell > span.text-size-medium { flex:1 1 55%; min-width:0;
+    font-size:13px; line-height:1.3; }
   html.gm-home-enh .gm-home-cell > .div-bubblesblock-space-compact { flex:1 1 100%; }
-  /* the stray <br>s between blocks are noise once we flex — hide them */
   html.gm-home-enh .gm-home-cell > br { display:none; }
-  /* v6.5.1: the desktop featured wrapper (div.mobile-display-none) sits full-
-     width under <body> while the rest of the page centers in a ~1100px column,
-     so the featured grid bled off the left edge. Center it to match. */
-  html.gm-home-enh div.mobile-display-none { max-width:1100px; margin-left:auto !important;
-    margin-right:auto !important; display:block; }
+  /* TEXT WRAP inside cards: the native title/price sit in a <nobr>; let it wrap */
+  html.gm-home-enh td.home-preorder-cell nobr { white-space:normal !important; }
+  html.gm-home-enh td.home-preorder-cell strong { white-space:normal !important; overflow-wrap:anywhere; }
   /* tile footer: the solicitation blurb / big notes */
   .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
     color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
