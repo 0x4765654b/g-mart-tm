@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.9.0
+// @version      6.10.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -369,6 +369,29 @@
   html.gm-backissues.gm-enh td.gm-bi-publist .gm-bi-imprint { padding-left:14px; font-size:12px; opacity:.85; }
   /* the filter input is a direct child of the column box — don't let it be a column item */
   html.gm-backissues.gm-enh td.gm-bi-publist input.gm-bi-filter { column-span:all; }
+  /* ===== v6.10: CART / CHECKOUT ===== */
+  html.gm-cart.gm-enh form.gm-cart-form { max-width:720px; margin:10px auto; }
+  /* line-item rows get subtle separation */
+  html.gm-cart.gm-enh tr.gm-cart-row td { padding:8px 10px; border-bottom:1px solid #e2e5ea; vertical-align:middle; }
+  html.gm-dark.gm-cart.gm-enh tr.gm-cart-row td { border-bottom-color:#2a2e35; }
+  html.gm-cart.gm-enh tr.gm-cart-row img { max-width:48px; height:auto; border-radius:4px; }
+  /* TOTAL line emphasized */
+  html.gm-cart.gm-enh .gm-cart-total { font-weight:800; font-size:15px; }
+  /* buttons: BUY primary green, Clear Cart cautionary, others neutral */
+  html.gm-cart.gm-enh input.gm-cart-buy { padding:10px 22px; border:none; border-radius:8px;
+    background:#2b8a3e; color:#fff; font-size:15px; font-weight:700; cursor:pointer; margin:4px 6px 4px 0; }
+  html.gm-cart.gm-enh input.gm-cart-buy:hover { background:#237032; }
+  html.gm-cart.gm-enh input.gm-cart-clear { padding:9px 16px; border:1px solid #e0b4bb; border-radius:8px;
+    background:#fdecef; color:#b11530; font-size:13px; cursor:pointer; margin:4px 6px 4px 0; }
+  html.gm-dark.gm-cart.gm-enh input.gm-cart-clear { background:#3a1620; color:#ff8da0; border-color:#5a2630; }
+  html.gm-cart.gm-enh input.gm-cart-btn { padding:9px 16px; border:1px solid #cbd0d6; border-radius:8px;
+    background:#f4f5f7; color:#15181d; font-size:13px; cursor:pointer; margin:4px 6px 4px 0; }
+  html.gm-dark.gm-cart.gm-enh input.gm-cart-btn { background:#2a2e35; color:#e3e5e8; border-color:#3a3f47; }
+  /* payment code + radios inherit the account form field styling via gm-account;
+     ensure the cart's own text input is styled too */
+  html.gm-cart.gm-enh input[type=text] { padding:7px 10px; border:1px solid #cbd0d6; border-radius:7px;
+    font-size:14px; box-sizing:border-box; }
+  html.gm-dark.gm-cart.gm-enh input[type=text] { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
   /* ===== v6.6: HOME featured items — centered 3-up grid + per-cell cards =====
      The desktop featured wrapper (div.mobile-display-none) is natively full-
      width while the rest of the page centers in ~1100px, and its inner tables
@@ -1235,7 +1258,44 @@
     return true;
   }
 
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); styleSearchForm(); gmFixContrast(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); gmFixContrast(); }
+
+  // ===== v6.10: CART / CHECKOUT page =====
+  // The cart is a <form.max-width-desktop> with a line-item table (checkbox
+  // name="x" + qty + cover + title + price), a totals breakdown (SUBTOTAL /
+  // Bag-Board / Shipping / TOTAL), payment + shipping option radios, and the
+  // BUY / Recalculate / Clear Cart / More Shopping buttons. We only add marker
+  // classes (no DOM restructuring, no value changes) so CSS can card the line
+  // items + totals, emphasize the TOTAL and the BUY button, and keep it
+  // dark-mode-safe. Detection: a form carrying a BUY submit + a Clear Cart
+  // submit (unique to the cart).
+  function enhanceCart() {
+    const submits = [...document.querySelectorAll('input[type=submit]')].map(b => (b.value || '').trim());
+    const isCart = submits.includes('BUY') && submits.includes('Clear Cart');
+    if (!isCart) return false;
+    document.documentElement.classList.add('gm-cart');
+    const form = document.querySelector('form');
+    if (form) form.classList.add('gm-cart-form');
+    // line-item rows (each has an x checkbox)
+    document.querySelectorAll('input[name="x"]').forEach(cb => {
+      const row = cb.closest('tr');
+      if (row) row.classList.add('gm-cart-row');
+    });
+    // the primary action buttons
+    document.querySelectorAll('input[type=submit]').forEach(b => {
+      const v = (b.value || '').trim();
+      if (v === 'BUY') b.classList.add('gm-cart-buy');
+      else if (v === 'Clear Cart') b.classList.add('gm-cart-clear');
+      else b.classList.add('gm-cart-btn');
+    });
+    // the TOTAL line — find the cell whose text starts with TOTAL (not SUBTOTAL)
+    [...document.querySelectorAll('td, b, strong, font')].forEach(el => {
+      if (el.children.length === 0 && /^\s*TOTAL\b/i.test(el.textContent || '')) {
+        el.classList.add('gm-cart-total');
+      }
+    });
+    return true;
+  }
 
   // ===== v6.9: BACK ISSUES landing page =====
   // The page has a title-search input (search_title_1_text), a few quick-pick
