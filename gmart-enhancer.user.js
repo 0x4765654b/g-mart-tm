@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.7.0
+// @version      6.9.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -330,6 +330,45 @@
   html.gm-dark.gm-account.gm-enh table.gm-data-table tr:nth-child(even) td { background:rgba(255,255,255,.03); }
   /* right-align any cell that is purely a dollar amount */
   html.gm-account.gm-enh table.gm-data-table td[align="right"] { text-align:right; font-variant-numeric:tabular-nums; }
+  /* ===== v6.8: LEDGER (<pre> transaction list, e.g. Account Balance) ===== */
+  html.gm-account.gm-enh pre.gm-ledger {
+    font-family:'SF Mono',Consolas,'Liberation Mono',monospace; font-size:13px; line-height:1.55;
+    padding:14px 16px; margin:10px 0; max-width:760px; overflow-x:auto;
+    background:#f8f9fb; border:1px solid #e2e5ea; border-radius:10px; color:#2a2f37; }
+  html.gm-dark.gm-account.gm-enh pre.gm-ledger {
+    background:#191c21; border-color:#2a2e35; color:#cfd4da; }
+  html.gm-account.gm-enh pre.gm-ledger a { font-weight:600; }
+  /* the "YOU OWE" total line — make it stand out */
+  html.gm-account.gm-enh .gm-ledger-total {
+    display:inline-block; margin:8px 0; padding:6px 12px; border-radius:8px;
+    font-weight:700; background:#fdecef; color:#b11530; }
+  html.gm-dark.gm-account.gm-enh .gm-ledger-total { background:#3a1620; color:#ff8da0; }
+  /* ===== v6.9: BACK ISSUES landing ===== */
+  /* title search */
+  html.gm-backissues.gm-enh input.gm-bi-search { padding:9px 12px; font-size:15px; min-width:260px;
+    border:1px solid #cbd0d6; border-radius:9px; box-sizing:border-box; }
+  html.gm-dark.gm-backissues.gm-enh input.gm-bi-search { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+  html.gm-backissues.gm-enh input.gm-bi-search-go { padding:9px 16px; border:none; border-radius:8px;
+    background:#005fb2; color:#fff; font-size:14px; font-weight:600; cursor:pointer; margin-left:6px; }
+  html.gm-backissues.gm-enh input.gm-bi-search-go:hover { background:#004a8c; }
+  /* quick-pick title chips */
+  html.gm-backissues.gm-enh a.gm-bi-chip { display:inline-block; padding:4px 11px; margin:3px 5px 3px 0;
+    border-radius:999px; background:#eef1f5; color:#15181d !important; text-decoration:none !important;
+    font-size:13px; font-weight:600; }
+  html.gm-backissues.gm-enh a.gm-bi-chip:hover { background:#dbe3ec; }
+  html.gm-dark.gm-backissues.gm-enh a.gm-bi-chip { background:#2a2e35; color:#e3e5e8 !important; }
+  html.gm-dark.gm-backissues.gm-enh a.gm-bi-chip:hover { background:#343a43; }
+  /* publisher list: filter box + responsive multi-column */
+  html.gm-backissues.gm-enh input.gm-bi-filter { display:block; width:100%; max-width:420px; box-sizing:border-box;
+    padding:8px 11px; margin:0 0 10px; font-size:14px; border:1px solid #cbd0d6; border-radius:8px; }
+  html.gm-dark.gm-backissues.gm-enh input.gm-bi-filter { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+  html.gm-backissues.gm-enh td.gm-bi-publist { columns:4 220px; column-gap:22px; }
+  html.gm-backissues.gm-enh td.gm-bi-publist .gm-bi-pub { display:inline-block; width:100%;
+    break-inside:avoid; padding:2px 0; font-size:13px; text-decoration:none; }
+  html.gm-backissues.gm-enh td.gm-bi-publist .gm-bi-parent { font-weight:700; margin-top:4px; }
+  html.gm-backissues.gm-enh td.gm-bi-publist .gm-bi-imprint { padding-left:14px; font-size:12px; opacity:.85; }
+  /* the filter input is a direct child of the column box — don't let it be a column item */
+  html.gm-backissues.gm-enh td.gm-bi-publist input.gm-bi-filter { column-span:all; }
   /* ===== v6.6: HOME featured items — centered 3-up grid + per-cell cards =====
      The desktop featured wrapper (div.mobile-display-none) is natively full-
      width while the rest of the page centers in ~1100px, and its inner tables
@@ -1177,11 +1216,81 @@
           if (/\$|owe|balance|ship|track|credit|charge/i.test(t.textContent)) t.classList.add('gm-data-table');
         });
       }
+      // Account Balance / ledger pages render as a monospace <pre> block (date /
+      // amount / type columns). Card-style the <pre> itself (no text parsing).
+      const pres = [...document.querySelectorAll('pre')].filter(pre =>
+        pre.textContent.length > 40 && /\d{4}\s+\w+\s+\d+|owe|balance|-?\d+\.\d{2}/i.test(pre.textContent));
+      if (pres.length) {
+        document.documentElement.classList.add('gm-account');
+        pres.forEach(pre => pre.classList.add('gm-ledger'));
+      }
+      // the "Total of above: YOU OWE 28.50" summary line
+      [...document.querySelectorAll('b, strong, p, div, li, font')].forEach(el => {
+        if (el.children.length === 0 && /YOU OWE|Total of above/i.test(el.textContent || '')) {
+          el.classList.add('gm-ledger-total');
+          document.documentElement.classList.add('gm-account');
+        }
+      });
     }
     return true;
   }
 
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); styleSearchForm(); gmFixContrast(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); styleSearchForm(); gmFixContrast(); }
+
+  // ===== v6.9: BACK ISSUES landing page =====
+  // The page has a title-search input (search_title_1_text), a few quick-pick
+  // title links, and a flat wall of ~589 publisher/imprint links inside one
+  // <td> (anchors separated by <br>, imprints named "Parent / Imprint"). We
+  // add: a live filter box over the publisher list, a responsive multi-column
+  // layout, visual nesting of imprints, and chip styling for the quick picks.
+  // Non-destructive: we add a wrapper + classes; the native <a> links (hrefs)
+  // are never modified, so navigation is untouched.
+  function enhanceBackIssues() {
+    const search = document.querySelector('input[name="search_title_1_text"]');
+    const pubLinks = [...document.querySelectorAll('a[href*="&i="]')];
+    if (!search || pubLinks.length < 30) return false; // not the back-issues page
+    document.documentElement.classList.add('gm-backissues');
+    // the <td> holding the publisher links
+    const td = pubLinks[0].closest('td');
+    if (td && !td.dataset.gmBi) {
+      td.dataset.gmBi = '1';
+      td.classList.add('gm-bi-publist');
+      // tag imprints (name contains " / ") vs top-level publishers
+      pubLinks.forEach(a => {
+        a.classList.add('gm-bi-pub');
+        if (/\s\/\s/.test(a.textContent)) a.classList.add('gm-bi-imprint');
+        else a.classList.add('gm-bi-parent');
+      });
+      // inject a live filter box at the top of the publisher cell
+      const filter = document.createElement('input');
+      filter.type = 'text';
+      filter.className = 'gm-bi-filter';
+      filter.placeholder = 'Filter publishers\u2026 (' + pubLinks.length + ')';
+      filter.addEventListener('input', () => {
+        const q = filter.value.trim().toLowerCase();
+        let shown = 0;
+        pubLinks.forEach(a => {
+          const hit = !q || a.textContent.toLowerCase().includes(q);
+          a.style.display = hit ? '' : 'none';
+          // hide the <br> immediately after a hidden link to avoid blank gaps
+          const br = a.nextElementSibling;
+          if (br && br.tagName === 'BR') br.style.display = hit ? '' : 'none';
+          if (hit) shown++;
+        });
+        filter.placeholder = 'Filter publishers\u2026 (' + shown + ')';
+      });
+      td.insertBefore(filter, td.firstChild);
+    }
+    // quick-pick title links (section=c + #page_end) → chips
+    document.querySelectorAll('a[href*="section=c"]').forEach(a => {
+      if (/#page_end/.test(a.href)) a.classList.add('gm-bi-chip');
+    });
+    // style the title-search input + its submit
+    search.classList.add('gm-bi-search');
+    const submit = search.closest('form') && search.closest('form').querySelector('input[type=submit]');
+    if (submit) submit.classList.add('gm-bi-search-go');
+    return true;
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
