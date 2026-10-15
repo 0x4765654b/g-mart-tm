@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      5.0.0
+// @version      5.1.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -81,12 +81,49 @@
   html.gm-dark body { background-color:#16181d !important; color:#e3e5e8; }
   html.gm-dark .navtable-main { background:#1e2127; box-shadow:0 2px 8px rgba(0,0,0,.5); }
   html.gm-dark td, html.gm-dark th { color:#e3e5e8; }
-  html.gm-dark a { color:#6ea8ff !important; }
+  /* Recolor ordinary links to readable light-blue — but NOT the site's own
+     nav buttons/tabs, whose links are white text on a solid blue pill. Those
+     keep white (recoloring them to light-blue produced unreadable blue-on-blue). */
+  html.gm-dark a:not(.link-white):not(.navbutton-blue-brand a):not(.navbutton-red-logo a):not(.navbutton-tabunselected a):not(.navtab-rounded a):not(.navribbon-td a):not(.navribbon-td-black a):not(.navbutton-info a):not(.navcart-text):not(.navsub-text a):not(.navlink):not(.gm-rel-btn) { color:#6ea8ff !important; }
+  /* site nav strip links painted on blue (navlink / navribbon) stay white */
+  html.gm-dark a.navlink, html.gm-dark .navribbon-td a, html.gm-dark .navribbon-td-black a { color:#fff !important; }
+  /* keep the site's blue/red nav pills with white text in dark mode */
+  html.gm-dark .navbutton-blue-brand > a, html.gm-dark .navbutton-red-logo > a,
+  html.gm-dark .navbutton-tabunselected > a, html.gm-dark .navtab-rounded > a,
+  html.gm-dark .navribbon-td > a, html.gm-dark .navribbon-td-black > a,
+  html.gm-dark .navbutton-info > a, html.gm-dark .navcart-text,
+  html.gm-dark .navsub-text a, html.gm-dark .link-white { color:#fff !important; }
   html.gm-dark .actiontext, html.gm-dark .actiontext-small, html.gm-dark .actiontext-price,
   html.gm-dark .actiontext-discount { background:#262a31 !important; color:#6ea8ff !important; border-color:#3a3f47 !important; }
   html.gm-dark .actiontext:hover { background:#2f343d !important; }
   html.gm-dark input[type=text] { background:#262a31; color:#e3e5e8; border:1px solid #3a3f47; }
   html.gm-dark img { filter: brightness(.92); }
+
+  /* dark-mode dropdown menus (Account / Customer Service / Social): the site
+     paints these menu items white via the <li>, so light link text was
+     unreadable. Darken the menu surface and force readable light links. */
+  html.gm-dark .menu-dropdown ul,
+  html.gm-dark .menu-dropdown li { background:#262a31 !important; color:#e3e5e8 !important; }
+  html.gm-dark .menu-dropdown li a { color:#9ec5ff !important; }
+  html.gm-dark .menu-dropdown li a:hover { color:#cfe0ff !important; }
+  html.gm-dark .menu-dropdown li:hover { background:#30353d !important; }
+
+  /* Dark-mode contrast is finished with a JS pass (gmFixContrast) that finds
+     elements whose OWN background stays light and forces dark text on just
+     those — far more reliable than guessing the site's legacy bgcolor markup.
+     The release-date pill keeps white text (its own rule below). */
+  html.gm-dark .gm-release-bar .gm-rel-btn,
+  html.gm-dark .gm-release-bar .gm-rel-btn * { color:#fff !important; }
+  /* a light surface tagged by the JS pass: force dark text on it AND on every
+     descendant (except our own injected UI, which manages its own colors). */
+  html.gm-dark .gm-fixdark,
+  html.gm-dark .gm-fixdark *:not(.gm-chip):not(.gm-rel-btn):not(.gm-cat-count) { color:#111 !important; }
+  /* High specificity so this beats the long :not() link rule above (whose many
+     :not() pseudo-classes inflate its specificity). */
+  html.gm-dark .gm-fixdark a,
+  html.gm-dark .gm-fixdark a:link,
+  html.gm-dark .gm-fixdark a:visited,
+  html.gm-dark .gm-fixdark a:not(.x):not(.y):not(.z) { color:#0a3d8f !important; }
 
   /* TOOLBAR */
   .gm-subs-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; padding:10px 12px;
@@ -202,6 +239,18 @@
     const h = document.documentElement;
     h.classList.toggle('gm-enh', !!S.reskin);
     h.classList.toggle('gm-dark', !!(S.reskin && S.darkMode));
+    // keep the dark-mode contrast pass in sync with the toggle
+    if (S.reskin && S.darkMode) {
+      if (typeof gmFixContrast === 'function') gmFixContrast();
+    } else {
+      document.querySelectorAll('.gm-fixdark').forEach(e => {
+        e.classList.remove('gm-fixdark');
+        e.querySelectorAll('a[data-gm-prev-color]').forEach(a => {
+          a.style.color = a.dataset.gmPrevColor || '';
+          delete a.dataset.gmPrevColor;
+        });
+      });
+    }
   }
   applyThemeFlags();
 
@@ -711,8 +760,45 @@
     return true;
   }
 
+  // ----- dark-mode contrast pass --------------------------------------
+  // The site paints assorted strips with legacy light backgrounds (pale cyan,
+  // yellow, lime) via bgcolor="" and inline styles that carry NO class, so CSS
+  // can't reliably target them. Instead, measure each element's OWN background:
+  // if it's light while dark mode is on, tag it `.gm-fixdark` so the CSS above
+  // restores dark text on just that element. We only tag elements that set their
+  // own background (not inherited), so we never darken text sitting on the dark
+  // page body or on our own dark components.
+  function gmFixContrast() {
+    if (!(S.reskin && S.darkMode)) return;
+    const lum = (r, g, b) => {
+      const ch = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+    };
+    // scope to the main content; skip our own injected UI
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced');
+    document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
+      if (skip(el)) return;
+      const bg = getComputedStyle(el).backgroundColor;
+      const m = bg.match(/\d+(\.\d+)?/g);
+      if (!m || m.length < 3) return;
+      const a = m.length >= 4 ? parseFloat(m[3]) : 1;
+      if (a < 0.5) return;                       // transparent — not its own bg
+      const [r, g, b] = m.map(Number);
+      if (lum(r, g, b) > 0.6) {
+        el.classList.add('gm-fixdark');                        // light surface
+        // Inline-style any links inside — inline wins over the high-specificity
+        // global dark-mode link rule (which otherwise keeps them light-blue on
+        // this pale strip). Record the original so we can undo on toggle-off.
+        el.querySelectorAll('a').forEach(a => {
+          if (a.dataset.gmPrevColor === undefined) a.dataset.gmPrevColor = a.style.color || '';
+          a.style.setProperty('color', '#0a3d8f', 'important');
+        });
+      }
+    });
+  }
+
   // ----- boot -----------------------------------------------------------
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); styleSearchForm(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); styleSearchForm(); gmFixContrast(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
