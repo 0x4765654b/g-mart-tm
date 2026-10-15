@@ -1,6 +1,6 @@
 # G-Mart Comics Enhancer
 
-A Tampermonkey userscript that reskins [g-mart.com](https://www.g-mart.com/) and
+A userscript (Tampermonkey, Violentmonkey or Greasemonkey) that reskins [g-mart.com](https://www.g-mart.com/) and
 adds subscription / pre-order management **and** catalog-browsing features. Pure
 DOM + CSS — G-Mart is a classic CGI store (`store.cgi`) with no JSON API, so
 everything is done against the rendered HTML.
@@ -17,7 +17,7 @@ everything is done against the rendered HTML.
 
 | File | Purpose |
 |------|---------|
-| `gmart-enhancer.user.js` | The userscript (v6.15.4). Install this in Tampermonkey. |
+| `gmart-enhancer.user.js` | The userscript (v6.16). Install this in Tampermonkey. |
 | *(history)* | Every released version is a tagged commit (`git log --follow gmart-enhancer.user.js`, `git tag`); there is no separate versions folder. |
 | `tests/` | Live-site Playwright checks (logged-in via macOS Keychain service `gmart-enhancer-test`); see `tests/README.md`. |
 | `reference/` | *Local only, not committed* — captured page DOMs (subs hub, Your Subscriptions, Pre-Orders, Current Issues, Back Issues title / Popular Titles, All Subscriptions) used to build against offline. They contain account data, so they're git-ignored. |
@@ -85,7 +85,11 @@ Install **Tampermonkey** for your browser:
 [Firefox](https://addons.mozilla.org/firefox/addon/tampermonkey/) ·
 [Safari](https://apps.apple.com/app/tampermonkey/id1482490089) (paid App Store app) ·
 [Opera](https://addons.opera.com/extensions/details/tampermonkey-beta/).
-Violentmonkey also works (the script only uses `GM_addStyle`, `GM_getValue`, `GM_setValue`).
+**Violentmonkey** and **Greasemonkey 4** (Firefox) work too: the script uses the
+synchronous `GM_*` API where it exists and falls back to Greasemonkey's
+Promise-based `GM.getValue` / `GM.setValue` (theme CSS is injected directly).
+With Greasemonkey, install by opening the raw link below (Greasemonkey shows its
+install dialog) or via its **New user script** editor.
 
 ### 2. Chrome / Edge only: allow user scripts
 Chromium browsers block extensions from running user scripts until you opt in.
@@ -115,8 +119,9 @@ Firefox and Safari need no extra step.
    catalog **Hide titles I get** filter (and the green SUBSCRIBED badges).
 
 ### Updates
-Tampermonkey checks the GitHub copy periodically (default: daily) and offers the
-update when `@version` increases. To check now: dashboard → **Utilities** →
+Tampermonkey and Violentmonkey check the GitHub copy periodically (default: daily)
+and offer the update when `@version` increases; Greasemonkey 4 also updates
+automatically from the script's `@downloadURL`. To check now: dashboard → **Utilities** →
 **Check for userscript updates**, or open the script's raw link again.
 If you installed **before v6.15.4** by pasting, reinstall once from the raw link
 (or paste v6.15.4) so Tampermonkey picks up the update URL.
@@ -124,6 +129,9 @@ If you installed **before v6.15.4** by pasting, reinstall once from the raw link
 ### Disable / uninstall
 Tampermonkey dashboard → toggle **G-Mart Comics Enhancer** off to disable, or
 use the trash icon to remove it. The site goes straight back to its native look.
+
+Settings (dark mode, catalog toggles, learned subscription titles) are stored by
+the userscript manager **per browser** — repeat step 4 in each browser you use.
 
 ### Troubleshooting
 - **Nothing changes on g-mart.com:** check step 2 (Chrome/Edge), that the script is
@@ -134,6 +142,7 @@ use the trash icon to remove it. The site goes straight back to its native look.
 - **"G-Mart High Traffic / Please Wait":** that's the site throttling guests — log in.
 
 ## Version history
+- **v6.16** — **Greasemonkey 4 support** (Firefox). GM4 has only the Promise-based `GM.getValue` / `GM.setValue` and no `GM_addStyle`, so the script previously died on its first settings read. A small `GMC` compatibility layer now wraps storage and styling: with Tampermonkey / Violentmonkey it calls `GM_*` directly (unchanged); with GM4 it preloads the four keys the script uses (`gm_dark`, `gm_reskin`, `gm_owned`, `gm_cat_prefs`) before boot so reads stay synchronous, persists writes via `GM.setValue`, and injects the theme with a `<style>` element; with no manager API it runs on defaults. Header adds `@grant GM.getValue` / `GM.setValue`. Startup errors are now logged as `[G-Mart Enhancer]` in the console. Verified with Tampermonkey-style, Greasemonkey-4-style (async) and no-API shims: theme + dark mode, ⚙ toggles persisting, catalog prefs and learned titles restoring; live (Tampermonkey-style): unchanged behavior, 0 dark-mode contrast failures. Verified by hand in Firefox + Greasemonkey 4 (theme, dark-mode persistence, learned titles / SUBSCRIBED badges).
 - **v6.15.4** — Install & update: header gains `@homepageURL`, `@supportURL`, `@updateURL` and `@downloadURL` (raw GitHub copy), so Tampermonkey auto-updates from the repo whenever `@version` increases. README install section rewritten: browser links, the Chrome/Edge **Allow User Scripts** (or Developer mode) requirement, one-click install from the raw link, first-run notes (dark mode off by default, visit Your Subscriptions once), update / disable / troubleshooting, and an "unofficial" disclaimer. No behavior changes.
 - **v6.15.3** — **All Subscriptions** page (hub → Subscriptions → Browse All) was untiled: its items are the same per-item bubble layout as the publisher pre-order pages, but the tiler only recognized a "Record Orders" submit and this page has "Record Subscriptions", so the light bubbles stayed light and dark mode left SUBSCRIBE as navy-on-dark. `enhancePreorderCatalog()` now accepts either submit, and uses `span#subtext_*` (the series name, e.g. "Alien (monthly)") as the tile title when present instead of the "(►starts AFTER)" toggle. Verified live: 1,356 tiles in 96 publisher grids, 0 dark-mode contrast failures, light mode clean.
 - **v6.15.2** — The sticky catalog toolbar (filter / sort / deals / hide-owned / compact) was pinned at `top:0` above the site's own sticky header, covering it on scroll (since v3). It now pins just **below** the header: new `syncNavOffset()` measures `.navtable-main` into `--gm-nav-h` (re-measured on resize, load and theme toggle; 0 when the clean theme is off), and the toolbar sits under the header in stacking order so the header fly-out menus open over it. Also removed four unused leftovers (`isSection`, `anchorRow()`, `captureOwnedTitles`'s `didList` parameter, a superseded `blurb` lookup in the pre-order tiler). Verified live: toolbar top = header bottom (101px) in light and dark, Customer Service menu overlays the toolbar, catalog filter/deals/hide-owned and subscription list tools unchanged.

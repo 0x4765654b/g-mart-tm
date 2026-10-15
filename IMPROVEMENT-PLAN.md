@@ -1,76 +1,98 @@
 # G-Mart Enhancer — Whole-Site Improvement Plan
 
-_Drafted overnight, Tue Oct 13 2026, from a full crawl of the live site (logged in). Current script: **v6.6**._
+_Originally drafted Tue Oct 13 2026 from a full crawl of the live site (v6.6).
+Updated Thu Oct 15 2026 for **v6.16** after the first live browser test pass
+(logged in and logged out, light + dark, Chrome; spot-checked in Firefox +
+Greasemonkey)._
 
 ## TL;DR
 
-The enhancer already covers the big content pages well (catalog tiling, subscriptions/pre-orders management, home featured cards, dark mode). The crawl surfaced a **whole class of pages the script barely touches**: the **account/utility pages** (Customer Information, Account Balance, Items Ready for Shipping, Your Shipments, Contact Us) and the **FAQ**. These are plain legacy tables/forms with no enhancement beyond the global theme. The highest-value next work is a **shared "page chrome + forms + data-tables" styling layer** that lifts every page at once, plus finishing the two parked catalog features.
+The original plan (P1–P3) is **done**: the account/forms layer, Back Issues,
+cart styling and the hybrid sale pages all shipped in v6.7–v6.10 and were then
+fixed up against the live site in v6.14–v6.15. Dark mode now has **0
+low-contrast text** on every page that was audited. What's left is small polish
+(a few unverified edge cases, light-mode auditing, minor page oddities) and
+optional features (cart peek, Customer Information reflow).
 
 ---
 
-## Site map (what exists, and current enhancement state)
+## Site map — current state
 
-| # | Page | Structure | Enhanced today? | Opportunity |
-|---|------|-----------|-----------------|-------------|
-| 1 | **Home / Landing** | `td.home-preorder-cell` featured grid + section banners | ✅ v6.6 cards, banners, dark readability | Minor polish only |
-| 2 | **Subscriptions & Pre-Orders** | `x####`/`q####` input tables | ✅ v2 management (sort, group, remove, summary) | Solid |
-| 3 | **Current Issues** (catalog) | `ul.ul-none` publisher groups | ✅ v6 tiles + accents + filters | Solid |
-| 4 | **Graphic Novels** | publisher groups (bare `<strong>`) | ✅ v6.3 broadened detector | Solid |
-| 5 | **Clearance / Back In Stock / SALE 60% Ratio Variants** | publisher-group catalog (+ small featured strip) | ✅ **already tiled** by catalog module | Verify hybrid featured strip renders |
-| 6 | **Search** | form (text + section checkboxes + depth radios) | ✅ v4 styled form | Solid |
-| 7 | **Back Issues (landing)** | title search + publisher browse list | ⚠️ captured, **not yet enhanced** | **PARKED #1** |
-| 8 | **Cart** | not yet captured | ❌ | **PARKED #2 — capture first** |
-| 9 | **Customer Information** | big settings **form**: 16 text + email + tel + 4 radio + 11 checkbox, 7 sections, 2 submits | ❌ global theme only | **NEW — biggest gap** |
-| 10 | **Account Balance** | financial **data table** (charges/credits, "YOU OWE") | ❌ global theme only | **NEW — data-table styling** |
-| 11 | **Items Ready for Shipping** | form + tables | ❌ global theme only | **NEW — data-table styling** |
-| 12 | **Your Shipments** | data tables (4) | ❌ global theme only | **NEW — data-table styling** |
-| 13 | **Contact Us** | static info tables | ❌ global theme only | **NEW — light content styling** |
-| 14 | **FAQ** (`faq.html`) | static Q&A, 3 tables, 12 imgs — **separate page, logged out ("Guest Login")** | ❌ not themed at all | **NEW — but note: different page + no session** |
+| # | Page | Structure | State (v6.16) | Remaining |
+|---|------|-----------|---------------|-----------|
+| 1 | **Home / Landing** | `td.home-preorder-cell` featured grid + section banners | ✅ 3-up cards, wrapping hardened (v6.15.1), dark-mode badges/buttons fixed (v6.14) | Missing-cover placeholder (P4) |
+| 2 | **Your Subscriptions / Your Pre-Orders** | `x####` / `q####` input tables | ✅ Polished list (v6.15): section headers + counts, frequency pills, quiet Remove, primary Save; price sort fixed (v6.14) | — |
+| 3 | **Subscriptions & Pre-Orders hub** | teal info panels + Pre-Order Type table | ✅ Dark mode fixed (v6.14) | — |
+| 4 | **All Subscriptions** (hub → Browse All) | per-item bubbles + Record Subscriptions | ✅ Tiled 3-col per publisher (v6.15.3) | — |
+| 5 | **Publisher pre-order pages** (e.g. Marvel) | per-item bubbles + Record Orders | ✅ Grid per publisher heading (v6.14) | Raw item codes (`7.202610.…`) still visible (P6) |
+| 6 | **Current Issues / new-release weeks** | `ul.ul-none` publisher groups | ✅ Tiles, filters, hide-owned, ratio tags readable | — |
+| 7 | **Graphic Novels** | publisher groups (bare `<strong>`) | ✅ 3-col cards, featured strip fixed | — |
+| 8 | **Clearance / Back In Stock / SALE 60%** | catalog + featured strip | ✅ Tiled; strip uses home card rules | — |
+| 9 | **Back Issues landing** | title search + 589-link publisher index | ✅ v6.9 index + live filter | — |
+| 10 | **Back Issues title pages** | nested or *flat* publisher lists | ✅ Detected logged-out (v6.14.1); flat Popular Titles layout rebuilt (v6.14.2); repeated publishers merged | — |
+| 11 | **Search** | form | ✅ Styled (v4) | — |
+| 12 | **Cart** | invoice table + payment/shipping form | ✅ Styled (v6.10), dark header rows fixed (v6.14) | Filled-cart header badge not live-verified (P6); cart peek (P7) |
+| 13 | **Want List** | catalog list | ✅ Gets the full catalog treatment | Toolbar is heavy for a short list (P6) |
+| 14 | **Customer Information** | big settings form | ✅ Restyled (v6.7); label colors fixed (v6.14) | Optional reflow (P7) |
+| 15 | **Account Balance** | `<pre>` ledger | ✅ Carded ledger + total pill (v6.8) | — |
+| 16 | **Items Ready for Shipping** | form + tables | ✅ Readable in dark mode | Not tagged `gm-account`, so it misses the account styling (P6) |
+| 17 | **Your Shipments / Contact Us** | data / info tables | ✅ Readable in dark mode | — |
+| 18 | **FAQ** (`faq.html`) | static Q&A page (logged out) | ✅ Global theme, readable in dark mode | Optional "article" treatment (P5) |
+| — | **Header** (all pages) | sticky nav, ▼ menus, cart/want bubbles | ✅ Matching blue pills (v6.14.3), menus readable, toolbar pins below header (v6.15.2) | — |
 
-Legacy class vocabulary seen on account pages (useful for targeting): `grid-table-checkbox-options-cell-*`, `flex-group`, `div-bubblesblock-space-compact`, `navbutton-blue-brand`, `navbutton-tabunselected`, `menu-dropdown`.
+Legacy class vocabulary (useful for targeting): `invoicebasic-*`,
+`div-bubble-veryfaint-compact` / `div-bubbles-space-compact-clear` (per-item
+bubbles), `div-bubble-info`, `div-bubble-faq-compact`, `home-preorder-cell*`,
+`highlight-text-comic-map-*` (ratio tags), `navbutton-info` /
+`navbutton-blue-brand`, `menu-dropdown` (wraps both the ▼ label and its fly-out),
+`navcart-*`, `grid-table-checkbox-options-cell-*`.
 
 ---
 
-## Proposed work, in priority order
+## Done (from the original plan)
 
-### P1 — Shared "account & forms" styling layer (biggest visual win, lowest risk)
-A new module `enhanceAccountPages()` + CSS that applies to pages 9–13. All are plain tables/forms, so pure CSS (no DOM restructuring) is safe and high-impact:
-- **Form fields** (Customer Information): consistent input/select/radio/checkbox styling matching the already-styled Search form (`.gm-search-styled` is the template). Group the 7 sections into carded fieldsets with clear headers. Dark-mode field backgrounds + readable labels.
-- **Data tables** (Account Balance, Your Shipments, Items Ready for Shipping): zebra rows, aligned numeric columns, a styled total/"YOU OWE" row, dark-mode-safe borders. Reuse one `.gm-data-table` class.
-- **Submit buttons**: reuse the existing blue brand button style for consistency.
-- Risk: low — these are static tables/forms; CSS-only, no overlap hazard like the home page had.
+- **P1 account & forms layer** — v6.7 (Customer Information, data tables), v6.8 (ledger).
+- **P2 Back Issues** — v6.9; title pages v6.14.1–v6.14.2.
+- **P2 Cart** — captured and styled in v6.10 (delivered as checkout styling; the
+  cross-page "peek" is still open, see P7).
+- **P3 hybrid sale pages** — featured strips render with the home card rules;
+  dark-mode readability fixed in v6.14.
+- **Cross-cutting dark mode** — the "two intentionally-left" contrast spots were
+  fixed after all (yellow/black sale badges, ratio tags); header menus verified
+  on every page.
 
-### P2 — Finish the two parked catalog features
-- **Back Issues lookup** (page 7): structure already captured. Style the title search + wildcard, make the publisher/imprint browse list a clean two-column index, carry over dark mode.
-- **Cart peek** (page 8): **first task is to capture the cart page** (add something to cart, open cart, record DOM). Then build a "cart peek" affordance to surface cart contents from any page.
+---
 
-### P3 — Hybrid sale pages
-Clearance & SALE-60% pages are catalog + a small 24-cell featured strip at top. Confirm the featured strip inherits the home card treatment (or scope the home module to run there too). Likely a 1-line selector tweak.
+## Remaining work, in priority order
 
 ### P4 — Home polish (minor)
-- Missing-cover items (Star Wars/Marvel, Batman: Bad Seeds): reserve the cover column or show a placeholder so the title aligns with cover-having cards.
-- Optional: tune the 3-column breakpoint for narrower windows (drop to 2, then 1).
+- Missing-cover items: reserve the cover column or show a placeholder so titles
+  line up with cards that have covers.
 
-### P5 — FAQ (optional, separate)
-`faq.html` is a standalone static page and, notably, **loads logged-out** (shows "Guest Login"). The userscript's `@match` covers `g-mart.com/*` so it will run, but there's no catalog/account structure — just 3 content tables. A light "readable article" treatment (max-width, spacing, dark mode) is all that's warranted. Low priority.
+### P5 — FAQ article treatment (optional)
+`faq.html` is a standalone page (loads logged out). It's readable; a max-width /
+spacing "article" pass would just make it nicer.
+
+### P6 — Small loose ends
+- **Items Ready for Shipping**: add it to `enhanceAccountPages()` detection so it
+  gets the same carded styling as the other account pages.
+- **Pre-order tiles**: dim or hide the raw item codes (`7.202610.7596…  details`).
+- **Want List**: consider a lighter toolbar (filter only) when the list is short.
+- **Filled-cart header badge** ("N items, $X" on salmon): verify live with an item
+  in the cart.
+
+### P7 — Optional features
+- **Cart peek**: a small hover/drop-down showing cart contents from any page.
+- **Customer Information reflow**: two-column fieldsets (restyle-only today).
+
+### P8 — Testing
+- **Light-mode contrast audit**: `tests/run.js` only scores dark mode; add the
+  same audit for light mode.
+- **Manager-compatibility test**: the Tampermonkey / Greasemonkey-4 / no-API shim
+  test used for v6.16 lives outside the repo — fold it into `tests/`.
+- **Browser coverage**: automated checks run in Chrome only; Firefox and Safari
+  are verified by hand.
 
 ---
-
-## Cross-cutting polish (applies site-wide)
-- **Native cyan strips**: v6.1 darkens the known `bgcolor` cyan values in dark mode; the account pages use different legacy strips — fold any newly-seen `bgcolor`s into the same `gmFixContrast` pass.
-- **The two intentionally-left site-native contrast spots** (white-on-cyan tabs 3.08:1, red "save" on yellow) remain G-Mart's own branding — still recommend leaving unless you want to override.
-- **Account/Customer-Service dropdown menus** (`menu-dropdown`): verify dark-mode contrast on every page (v5.1 fixed these on catalog pages; confirm they hold on account pages).
-
----
-
-## Suggested sequencing for tomorrow
-1. **P1 account/forms layer** — one module, big uplift across 5 pages, low risk. _(Recommend starting here.)_
-2. **P2 Back Issues** — ready to build.
-3. **P2 Cart** — capture, then build peek.
-4. **P3 hybrid sale strip** — quick tweak.
-5. **P4/P5** — polish passes.
-
-Open question for you: for **Customer Information** (the settings form), do you want it visually restyled only, or also reflowed (e.g. two-column fieldsets)? Reflow is a bit more work and slightly higher risk — I'd default to **restyle-only** unless you say otherwise.
-
----
-_All page structures from this crawl are captured in the session; I can start on P1 as soon as you're back. Nothing here is committed — it's a plan, not code changes._
+_Live page structures are captured locally in `reference/` (git-ignored — they
+contain account data). `tests/run.js` re-checks any page in light and dark mode._

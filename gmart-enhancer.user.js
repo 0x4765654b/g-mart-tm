@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.15.4
+// @version      6.16.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @homepageURL  https://github.com/0x4765654b/g-mart-tm
@@ -13,11 +13,13 @@
 // @grant        GM_addStyle
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM.getValue
+// @grant        GM.setValue
 // ==/UserScript==
 
 /*
- * G-MART COMICS ENHANCER  (v2)
- * ----------------------------
+ * G-MART COMICS ENHANCER
+ * ----------------------
  * G-Mart is a classic CGI-rendered store (store.cgi). No clean JSON API, but
  * the HTML is static table markup with consistent class names, so we enhance
  * it entirely in the DOM.
@@ -53,15 +55,49 @@
  * total prices + savings, so there we sum the site's actual Total Price column.
  */
 
-(function () {
+// ----- userscript-manager compatibility (v6.16) ------------------------
+// Tampermonkey / Violentmonkey expose the synchronous GM_getValue /
+// GM_setValue / GM_addStyle. Greasemonkey 4 only has the Promise-based
+// GM.getValue / GM.setValue and no GM_addStyle. GMC hides the difference: on
+// GM4 the few keys we use are preloaded into a cache before the script runs,
+// so all reads stay synchronous; writes update the cache and persist async.
+const GMC = (() => {
+  const KEYS = ['gm_dark', 'gm_reskin', 'gm_owned', 'gm_cat_prefs'];
+  const sync = typeof GM_getValue === 'function' && typeof GM_setValue === 'function';
+  const async4 = !sync && typeof GM !== 'undefined' && GM && typeof GM.getValue === 'function';
+  const cache = {};
+  return {
+    ready: async4
+      ? Promise.all(KEYS.map(k => GM.getValue(k).then(v => { if (v !== undefined) cache[k] = v; })))
+      : Promise.resolve(),
+    get(k, d) {
+      if (sync) return GM_getValue(k, d);
+      return k in cache ? cache[k] : d;
+    },
+    set(k, v) {
+      if (sync) return GM_setValue(k, v);
+      cache[k] = v;
+      if (async4) GM.setValue(k, v);
+    },
+    addStyle(css) {
+      if (typeof GM_addStyle === 'function') return GM_addStyle(css);
+      const el = document.createElement('style');
+      el.textContent = css;
+      (document.head || document.documentElement).appendChild(el);
+      return el;
+    },
+  };
+})();
+
+GMC.ready.then(function () {
   'use strict';
 
   // ----- settings -------------------------------------------------------
   const S = {
-    get darkMode() { return GM_getValue('gm_dark', false); },
-    set darkMode(v) { GM_setValue('gm_dark', v); },
-    get reskin() { return GM_getValue('gm_reskin', true); },
-    set reskin(v) { GM_setValue('gm_reskin', v); },
+    get darkMode() { return GMC.get('gm_dark', false); },
+    set darkMode(v) { GMC.set('gm_dark', v); },
+    get reskin() { return GMC.get('gm_reskin', true); },
+    set reskin(v) { GMC.set('gm_reskin', v); },
   };
 
   // ----- 1. THEME + UI CSS ---------------------------------------------
@@ -764,7 +800,7 @@
   .gm-search-styled input[type=submit]:hover { background:#004a8c; }
   `;
 
-  GM_addStyle(THEME_CSS);
+  GMC.addStyle(THEME_CSS);
 
   function applyThemeFlags() {
     const h = document.documentElement;
@@ -1081,11 +1117,11 @@
       const tds = [...inp.closest('tr').children].filter(c => c.tagName === 'TD');
       return seriesKey(tds[1]?.innerText || '');
     }).filter(Boolean);
-    if (names.length) GM_setValue('gm_owned', JSON.stringify([...new Set(names)]));
+    if (names.length) GMC.set('gm_owned', JSON.stringify([...new Set(names)]));
   }
 
   function getOwnedSet() {
-    try { return new Set(JSON.parse(GM_getValue('gm_owned', '[]'))); }
+    try { return new Set(JSON.parse(GMC.get('gm_owned', '[]'))); }
     catch (e) { return new Set(); }
   }
 
@@ -1291,9 +1327,9 @@
     // ---- restore remembered catalog toggles (persisted via GM) ----
     // Stored under one JSON key so one read/write covers all of them.
     let catPrefs = {};
-    try { catPrefs = JSON.parse(GM_getValue('gm_cat_prefs', '{}')) || {}; } catch (e) { catPrefs = {}; }
+    try { catPrefs = JSON.parse(GMC.get('gm_cat_prefs', '{}')) || {}; } catch (e) { catPrefs = {}; }
     function saveCatPrefs() {
-      GM_setValue('gm_cat_prefs', JSON.stringify({
+      GMC.set('gm_cat_prefs', JSON.stringify({
         deals: dealsOnly, hideOwned: hideOwned,
         compact: document.documentElement.classList.contains('gm-cat-compact'),
         sort: sortSel.value
@@ -1865,4 +1901,7 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
-})();
+}).catch(e => {
+  console.error('[G-Mart Enhancer]', e);
+  try { window.__gmErr = String((e && e.stack) || e); } catch (_) { /* sandboxed */ }
+});
