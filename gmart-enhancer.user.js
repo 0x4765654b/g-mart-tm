@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.14.0
+// @version      6.14.1
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -68,7 +68,7 @@
     background-color: #f4f5f7 !important; -webkit-font-smoothing: antialiased;
   }
   html.gm-enh body > table, html.gm-enh body > div, html.gm-enh body > form,
-  html.gm-enh body > p { max-width: 1100px; margin-left: auto !important; margin-right: auto !important; }
+  html.gm-enh body > p, html.gm-enh body > ul { max-width: 1100px; margin-left: auto !important; margin-right: auto !important; }
   html.gm-enh .navtable-main { position: sticky; top: 0; z-index: 50; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); }
   html.gm-enh .actiontext, html.gm-enh .actiontext-small, html.gm-enh .actiontext-price,
   html.gm-enh .actiontext-discount { border-radius:6px !important; transition: background-color .12s ease; }
@@ -369,6 +369,9 @@
   html.gm-dark.gm-home-enh td.home-preorder-cell [class*="bubbleblock-sale"]:not([class*="black"]) *,
   html.gm-dark.gm-home-enh td.home-preorder-cell .gm-home-ink,
   html.gm-dark td.hometd-sale-text, html.gm-dark td.hometd-sale-text * { color:#1a1300 !important; }
+  /* the collapsible "FAQ: What are ▢▢▢ ?" strip on catalog/back-issue pages */
+  html.gm-dark .div-bubble-faq-compact { background:#22262d !important; border-color:#333842 !important; color:#d7dbe2 !important; border-radius:8px; }
+  html.gm-dark .div-bubble-faq-compact strong, html.gm-dark .div-bubble-faq-compact summary { color:#e8eaed !important; }
   /* Customer Information: the site's dark red / purple labels on a dark surface */
   html.gm-dark .highlight-text-inventory-quantity-red { color:#ff8a8a !important; }
   html.gm-dark font[color="purple" i], html.gm-dark font[color="#800080" i] { color:#d9a0ff !important; }
@@ -995,7 +998,9 @@
     const uls = [...document.querySelectorAll('ul.ul-none')];
     const topUl = uls.find(ul => [...ul.children].some(li =>
         li.tagName === 'LI' && li.querySelector(PUB_STRONG) && li.querySelector(':scope > ul'))
-      && /quick_add|quick_remove|SUBSCRIBE|PRE-?ORDER|click_compact/i.test(ul.innerHTML));
+      && /quick_add|quick_remove|SUBSCRIBE|PRE-?ORDER|click_compact|click_comic_description/i.test(ul.innerHTML));
+      // v6.14: click_comic_description (the ► title toggle) is on every catalog
+      // item, incl. logged-out Back Issues title pages that lack quick-add icons.
       // NOTE: the broadened keywords above only help pages that already use the
       // ul.ul-none publisher-group structure. The Pre-Orders *catalog* page
       // (form > div.div-bubble-veryfaint-compact items, NO ul.ul-none) is
@@ -1010,6 +1015,21 @@
     if (/graphic novel/i.test(document.title)) {
       document.documentElement.classList.add('gm-gn');
     }
+
+    // v6.14: Back Issues title pages list items in title order, so the same
+    // publisher heading repeats (Dark Horse, Marvel, Dark Horse, …). Fold each
+    // repeat into the first group of that name, keeping the site's item order.
+    const firstByPub = {};
+    [...topUl.children].forEach(li => {
+      const strong = li.querySelector(PUB_STRONG);
+      const nestedUl = li.querySelector(':scope > ul');
+      if (!strong || !nestedUl) return;
+      const key = strong.textContent.trim().toLowerCase();
+      const first = firstByPub[key];
+      if (!first) { firstByPub[key] = nestedUl; return; }
+      [...nestedUl.children].forEach(it => first.appendChild(it));
+      li.remove();
+    });
 
     // collect publisher groups + their items
     const groups = [];
@@ -1361,7 +1381,7 @@
       a.style.color = a.dataset.gmPrevColor || '';
       delete a.dataset.gmPrevColor;
     });
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,td.home-preorder-cell,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,td.home-preorder-cell,.div-bubble-faq-compact,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
       // v6.11 #4 (root-cause): never tag a header button/cell that CONTAINS a
