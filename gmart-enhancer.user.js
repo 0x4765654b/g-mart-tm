@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.16.0
+// @version      6.16.1
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @homepageURL  https://github.com/0x4765654b/g-mart-tm
@@ -108,7 +108,8 @@ GMC.ready.then(function () {
     background-color: #f4f5f7 !important; -webkit-font-smoothing: antialiased;
   }
   html.gm-enh body > table, html.gm-enh body > div, html.gm-enh body > form,
-  html.gm-enh body > p, html.gm-enh body > ul { max-width: 1100px; margin-left: auto !important; margin-right: auto !important; }
+  html.gm-enh body > p, html.gm-enh body > ul,
+  html.gm-enh body > :is(h1,h2,h3,h4,h5,h6,blockquote,dl,hr,pre,center) { max-width: 1100px; margin-left: auto !important; margin-right: auto !important; }
   html.gm-enh .navtable-main { position: sticky; top: 0; z-index: 50; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); }
   html.gm-enh .actiontext, html.gm-enh .actiontext-small, html.gm-enh .actiontext-price,
   html.gm-enh .actiontext-discount { border-radius:6px !important; transition: background-color .12s ease; }
@@ -327,6 +328,20 @@ GMC.ready.then(function () {
   html.gm-dark .gm-cat-toolbar .gm-chip.active { background:#2d6fd6; color:#fff; }
   .gm-cat-count { font-weight:600; margin-left:auto; white-space:nowrap; }
 
+  /* v6.16.1: short lists — filter + count only; single publisher — no jump-nav */
+  html.gm-cat-short .gm-cat-toolbar #gm-cat-sort,
+  html.gm-cat-short .gm-cat-toolbar .gm-chip,
+  html.gm-cat-short .gm-legend,
+  .gm-pubnav.gm-pubnav-single { display:none !important; }
+  /* v6.16.1: account pages whose content is loose headings + paragraphs under
+     <body> (Items Ready for Shipping): section + publisher headers like the
+     Subscriptions list */
+  html.gm-account.gm-enh body > h2 { font-size:15px; margin-top:18px !important; margin-bottom:4px !important; }
+  html.gm-account.gm-enh body > h3 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#005fb2;
+    margin-top:12px !important; margin-bottom:2px !important; padding-top:8px; border-top:1px solid #e1e4e8; }
+  html.gm-dark.gm-account.gm-enh body > h3 { color:#7fb2ff; border-top-color:#2f343b; }
+  /* v6.16.1: raw pre-order item codes */
+  .gm-po-code { display:none !important; }
   /* price/stock legend */
   .gm-legend { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 10px; padding:8px 12px;
     background:#fbfbfd; border:1px solid #e3e5e8; border-radius:10px; font-size:12px; }
@@ -1232,6 +1247,10 @@ GMC.ready.then(function () {
     if (!groups.length) return false;
 
     const totalItems = groups.reduce((n, g) => n + g.items.length, 0);
+    // v6.16.1: short lists (e.g. a Want List) get a slim toolbar — just the
+    // filter + count — and no legend; a single publisher needs no jump-nav.
+    const shortList = totalItems <= 12;
+    if (shortList) document.documentElement.classList.add('gm-cat-short');
 
     // remember each item's native position so "default" sort can restore it
     groups.forEach(g => g.items.forEach((it, i) => { it.nativeIdx = i; }));
@@ -1268,6 +1287,7 @@ GMC.ready.then(function () {
       });
       pubnav.appendChild(a);
     });
+    if (groups.length < 2) pubnav.classList.add('gm-pubnav-single');
 
     // ---- toolbar ----
     const toolbar = document.createElement('div');
@@ -1336,14 +1356,15 @@ GMC.ready.then(function () {
       }));
     }
 
-    let dealsOnly = !!catPrefs.deals;
+    // (on short lists the filter chips are hidden, so never restore filters there)
+    let dealsOnly = !!catPrefs.deals && !shortList;
     // only restore hideOwned if we actually have an owned list to act on
-    let hideOwned = !!catPrefs.hideOwned && owned.size > 0;
+    let hideOwned = !!catPrefs.hideOwned && owned.size > 0 && !shortList;
 
     // reflect restored state in the controls up front
     dealsChip.classList.toggle('active', dealsOnly);
     ownedChip.classList.toggle('active', hideOwned);
-    if (catPrefs.sort && [...sortSel.options].some(o => o.value === catPrefs.sort)) {
+    if (!shortList && catPrefs.sort && [...sortSel.options].some(o => o.value === catPrefs.sort)) {
       sortSel.value = catPrefs.sort;
     }
     if (catPrefs.compact) {
@@ -1653,6 +1674,12 @@ GMC.ready.then(function () {
     const isHome = !!document.querySelector('td.home-preorder-cell');
     const isSubs = !!document.querySelector('input[name^="x"], input[name^="q"]');
     if (hasAccountForm) document.documentElement.classList.add('gm-account');
+    // v6.16.1: account pages without a data table / form (e.g. Items Ready for
+    // Shipping — its item list isn't a <table>) are recognized by the ribbon
+    const ribbon = (document.querySelector('.navribbon-td') || {}).textContent || '';
+    if (/Items Ready For Shipping|Your Shipments|Account Balance|Contact Us/i.test(ribbon)) {
+      document.documentElement.classList.add('gm-account');
+    }
     if (!hasAccountForm && !isCatalog && !isHome && !isSubs) {
       // tag likely data tables (3+ rows, not nav) for styling
       const tables = [...document.querySelectorAll('table')].filter(t =>
@@ -1788,6 +1815,14 @@ GMC.ready.then(function () {
       // pretext_* is only the "(►starts AFTER)" toggle
       const title = b.querySelector('span[id^="subtext_"]') || b.querySelector('span[id^="pretext_"]');
       if (title) title.classList.add('gm-tile-title');
+      // v6.16.1: hide the raw item code (<tt>7.202610.7596…</tt>) shown before
+      // the "details" link, along with the ", " separator in front of it
+      b.querySelectorAll('tt').forEach(tt => {
+        if (!/^\d+\.\d{6}\.\d{8,}$/.test(tt.textContent.trim())) return;
+        tt.classList.add('gm-po-code');
+        const prev = tt.previousSibling;
+        if (prev && prev.nodeType === 3 && /,\s*$/.test(prev.textContent)) prev.textContent = prev.textContent.replace(/,\s*$/, ' ');
+      });
       // move the hidden solicitation blurb into a hover-reveal footer.
       // NOTE: the qty input is ALSO .display-none (name=qsub_*). Only treat a
       // .display-none SPAN with substantial text as the blurb, never an input.

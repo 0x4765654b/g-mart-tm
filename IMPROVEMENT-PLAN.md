@@ -1,7 +1,7 @@
 # G-Mart Enhancer — Whole-Site Improvement Plan
 
 _Originally drafted Tue Oct 13 2026 from a full crawl of the live site (v6.6).
-Updated Thu Oct 15 2026 for **v6.16** after the first live browser test pass
+Updated Thu Oct 15 2026 for **v6.16.1** after the first live browser test pass
 (logged in and logged out, light + dark, Chrome; spot-checked in Firefox +
 Greasemonkey)._
 
@@ -24,18 +24,18 @@ optional features (cart peek, Customer Information reflow).
 | 2 | **Your Subscriptions / Your Pre-Orders** | `x####` / `q####` input tables | ✅ Polished list (v6.15): section headers + counts, frequency pills, quiet Remove, primary Save; price sort fixed (v6.14) | — |
 | 3 | **Subscriptions & Pre-Orders hub** | teal info panels + Pre-Order Type table | ✅ Dark mode fixed (v6.14) | — |
 | 4 | **All Subscriptions** (hub → Browse All) | per-item bubbles + Record Subscriptions | ✅ Tiled 3-col per publisher (v6.15.3) | — |
-| 5 | **Publisher pre-order pages** (e.g. Marvel) | per-item bubbles + Record Orders | ✅ Grid per publisher heading (v6.14) | Raw item codes (`7.202610.…`) still visible (P6) |
+| 5 | **Publisher pre-order pages** (e.g. Marvel) | per-item bubbles + Record Orders | ✅ Grid per publisher heading (v6.14); raw item codes hidden (v6.16.1) | — |
 | 6 | **Current Issues / new-release weeks** | `ul.ul-none` publisher groups | ✅ Tiles, filters, hide-owned, ratio tags readable | — |
 | 7 | **Graphic Novels** | publisher groups (bare `<strong>`) | ✅ 3-col cards, featured strip fixed | — |
 | 8 | **Clearance / Back In Stock / SALE 60%** | catalog + featured strip | ✅ Tiled; strip uses home card rules | — |
 | 9 | **Back Issues landing** | title search + 589-link publisher index | ✅ v6.9 index + live filter | — |
 | 10 | **Back Issues title pages** | nested or *flat* publisher lists | ✅ Detected logged-out (v6.14.1); flat Popular Titles layout rebuilt (v6.14.2); repeated publishers merged | — |
 | 11 | **Search** | form | ✅ Styled (v4) | — |
-| 12 | **Cart** | invoice table + payment/shipping form | ✅ Styled (v6.10), dark header rows fixed (v6.14) | Filled-cart header badge not live-verified (P6); cart peek (P7) |
-| 13 | **Want List** | catalog list | ✅ Gets the full catalog treatment | Toolbar is heavy for a short list (P6) |
+| 12 | **Cart** | invoice table + payment/shipping form | ✅ Styled (v6.10), dark header rows fixed (v6.14); filled-cart badge verified (v6.16.1) | Cart peek (P7) |
+| 13 | **Want List** | catalog list | ✅ Catalog treatment with a slim toolbar for short lists (v6.16.1) | — |
 | 14 | **Customer Information** | big settings form | ✅ Restyled (v6.7); label colors fixed (v6.14) | Optional reflow (P7) |
 | 15 | **Account Balance** | `<pre>` ledger | ✅ Carded ledger + total pill (v6.8) | — |
-| 16 | **Items Ready for Shipping** | form + tables | ✅ Readable in dark mode | Not tagged `gm-account`, so it misses the account styling (P6) |
+| 16 | **Items Ready for Shipping** | form + tables | ✅ Account styling + centered section/publisher headings (v6.16.1) | — |
 | 17 | **Your Shipments / Contact Us** | data / info tables | ✅ Readable in dark mode | — |
 | 18 | **FAQ** (`faq.html`) | static Q&A page (logged out) | ✅ Global theme, readable in dark mode | Optional "article" treatment (P5) |
 | — | **Header** (all pages) | sticky nav, ▼ menus, cart/want bubbles | ✅ Matching blue pills (v6.14.3), menus readable, toolbar pins below header (v6.15.2) | — |
@@ -73,13 +73,10 @@ bubbles), `div-bubble-info`, `div-bubble-faq-compact`, `home-preorder-cell*`,
 `faq.html` is a standalone page (loads logged out). It's readable; a max-width /
 spacing "article" pass would just make it nicer.
 
-### P6 — Small loose ends
-- **Items Ready for Shipping**: add it to `enhanceAccountPages()` detection so it
-  gets the same carded styling as the other account pages.
-- **Pre-order tiles**: dim or hide the raw item codes (`7.202610.7596…  details`).
-- **Want List**: consider a lighter toolbar (filter only) when the list is short.
-- **Filled-cart header badge** ("N items, $X" on salmon): verify live with an item
-  in the cart.
+### P6 — Small loose ends ✅ done in v6.16.1
+Items Ready for Shipping styling, hidden pre-order item codes, slim toolbar on
+short lists (≤ 12 items — note this also applies to small catalog pages such as
+Back In Stock), filled-cart badge verified.
 
 ### P7 — Optional features
 - **Cart peek**: a small hover/drop-down showing cart contents from any page.
