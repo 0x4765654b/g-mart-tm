@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.15.3
+// @version      6.15.4
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
+// @homepageURL  https://github.com/0x4765654b/g-mart-tm
+// @supportURL   https://github.com/0x4765654b/g-mart-tm/issues
+// @updateURL    https://raw.githubusercontent.com/0x4765654b/g-mart-tm/main/gmart-enhancer.user.js
+// @downloadURL  https://raw.githubusercontent.com/0x4765654b/g-mart-tm/main/gmart-enhancer.user.js
 // @match        https://www.g-mart.com/*
 // @run-at       document-end
 // @grant        GM_addStyle

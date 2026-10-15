@@ -5,11 +5,19 @@ adds subscription / pre-order management **and** catalog-browsing features. Pure
 DOM + CSS — G-Mart is a classic CGI store (`store.cgi`) with no JSON API, so
 everything is done against the rendered HTML.
 
+> **Unofficial.** This is a personal project and is not affiliated with or
+> endorsed by G-Mart Comics. It only changes how pages look and adds client-side
+> tools; it never changes your orders unless you press the site's own buttons
+> (Save Changes, Record Orders, BUY, …).
+
+**Quick install** (with Tampermonkey set up as below):
+[**Install gmart-enhancer.user.js**](https://raw.githubusercontent.com/0x4765654b/g-mart-tm/main/gmart-enhancer.user.js)
+
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `gmart-enhancer.user.js` | The userscript (v6.15.3). Install this in Tampermonkey. |
+| `gmart-enhancer.user.js` | The userscript (v6.15.4). Install this in Tampermonkey. |
 | *(history)* | Every released version is a tagged commit (`git log --follow gmart-enhancer.user.js`, `git tag`); there is no separate versions folder. |
 | `tests/` | Live-site Playwright checks (logged-in via macOS Keychain service `gmart-enhancer-test`); see `tests/README.md`. |
 | `reference/` | *Local only, not committed* — captured page DOMs (subs hub, Your Subscriptions, Pre-Orders, Current Issues, Back Issues title / Popular Titles, All Subscriptions) used to build against offline. They contain account data, so they're git-ignored. |
@@ -70,18 +78,63 @@ subscription series names remembered from the subscriptions page.
 
 ## Install
 
-1. Install the **Tampermonkey** browser extension.
-2. Open the Tampermonkey dashboard → **Create a new script**.
-3. Delete the template, paste the contents of `gmart-enhancer.user.js`, save (⌘S).
-4. Reload any g-mart.com page. The ⚙ gear appears top-right; management and
-   catalog pages get their respective toolbars.
-5. Visit **Your Subscriptions** once so the script can learn your titles for the
-   catalog "Hide titles I get" filter.
+### 1. Install a userscript manager
+Install **Tampermonkey** for your browser:
+[Chrome](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) ·
+[Edge](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd) ·
+[Firefox](https://addons.mozilla.org/firefox/addon/tampermonkey/) ·
+[Safari](https://apps.apple.com/app/tampermonkey/id1482490089) (paid App Store app) ·
+[Opera](https://addons.opera.com/extensions/details/tampermonkey-beta/).
+Violentmonkey also works (the script only uses `GM_addStyle`, `GM_getValue`, `GM_setValue`).
 
-To update: open the existing script in Tampermonkey, select all, paste the new
-version, save.
+### 2. Chrome / Edge only: allow user scripts
+Chromium browsers block extensions from running user scripts until you opt in.
+**If you skip this, the script installs but silently does nothing.**
+- **Chrome 138+ / current Edge:** open `chrome://extensions` (Edge: `edge://extensions`)
+  → Tampermonkey → **Details** → turn on **Allow User Scripts**.
+- **Older Chrome / Edge:** turn on **Developer mode** (top-right of the extensions page).
+
+Firefox and Safari need no extra step.
+
+### 3. Install the script
+- **Recommended — one click:** open the
+  [raw script link](https://raw.githubusercontent.com/0x4765654b/g-mart-tm/main/gmart-enhancer.user.js).
+  Tampermonkey shows its install page → **Install**. Installing this way enables
+  automatic updates (below).
+- **Manual:** Tampermonkey dashboard → **Create a new script** → delete the
+  template → paste the contents of `gmart-enhancer.user.js` → save (⌘S / Ctrl+S).
+  The script carries its update URL, so manual installs update automatically too
+  from v6.15.4 on.
+
+### 4. First run
+1. Reload any `https://www.g-mart.com/` page. A blue ⚙ gear appears top-right;
+   management and catalog pages get their toolbars.
+2. **Dark mode is off by default** — click ⚙ → **Dark mode**. The ⚙ panel also has
+   **Clean theme** to turn the whole reskin off. Both settings are remembered.
+3. Visit **Your Subscriptions** once so the script learns your titles for the
+   catalog **Hide titles I get** filter (and the green SUBSCRIBED badges).
+
+### Updates
+Tampermonkey checks the GitHub copy periodically (default: daily) and offers the
+update when `@version` increases. To check now: dashboard → **Utilities** →
+**Check for userscript updates**, or open the script's raw link again.
+If you installed **before v6.15.4** by pasting, reinstall once from the raw link
+(or paste v6.15.4) so Tampermonkey picks up the update URL.
+
+### Disable / uninstall
+Tampermonkey dashboard → toggle **G-Mart Comics Enhancer** off to disable, or
+use the trash icon to remove it. The site goes straight back to its native look.
+
+### Troubleshooting
+- **Nothing changes on g-mart.com:** check step 2 (Chrome/Edge), that the script is
+  enabled in the dashboard, and that you're on `https://www.g-mart.com/` (the
+  `@match`).
+- **Two copies running** (odd colors or doubled toolbars): keep only one
+  *G-Mart Comics Enhancer* in the dashboard.
+- **"G-Mart High Traffic / Please Wait":** that's the site throttling guests — log in.
 
 ## Version history
+- **v6.15.4** — Install & update: header gains `@homepageURL`, `@supportURL`, `@updateURL` and `@downloadURL` (raw GitHub copy), so Tampermonkey auto-updates from the repo whenever `@version` increases. README install section rewritten: browser links, the Chrome/Edge **Allow User Scripts** (or Developer mode) requirement, one-click install from the raw link, first-run notes (dark mode off by default, visit Your Subscriptions once), update / disable / troubleshooting, and an "unofficial" disclaimer. No behavior changes.
 - **v6.15.3** — **All Subscriptions** page (hub → Subscriptions → Browse All) was untiled: its items are the same per-item bubble layout as the publisher pre-order pages, but the tiler only recognized a "Record Orders" submit and this page has "Record Subscriptions", so the light bubbles stayed light and dark mode left SUBSCRIBE as navy-on-dark. `enhancePreorderCatalog()` now accepts either submit, and uses `span#subtext_*` (the series name, e.g. "Alien (monthly)") as the tile title when present instead of the "(►starts AFTER)" toggle. Verified live: 1,356 tiles in 96 publisher grids, 0 dark-mode contrast failures, light mode clean.
 - **v6.15.2** — The sticky catalog toolbar (filter / sort / deals / hide-owned / compact) was pinned at `top:0` above the site's own sticky header, covering it on scroll (since v3). It now pins just **below** the header: new `syncNavOffset()` measures `.navtable-main` into `--gm-nav-h` (re-measured on resize, load and theme toggle; 0 when the clean theme is off), and the toolbar sits under the header in stacking order so the header fly-out menus open over it. Also removed four unused leftovers (`isSection`, `anchorRow()`, `captureOwnedTitles`'s `didList` parameter, a superseded `blurb` lookup in the pre-order tiler). Verified live: toolbar top = header bottom (101px) in light and dark, Customer Service menu overlays the toolbar, catalog filter/deals/hide-owned and subscription list tools unchanged.
 - **v6.15.1** — Home featured cards: hardened text wrapping after a report of titles/blurbs clipped at the card's right edge (not reproducible in Chrome at 1000–1400px, either post-load or at Tampermonkey's document-end timing). The site's fixed `min-width:322px` on the cell box is dropped inside the card, and the loose blurb text node is wrapped in `.gm-home-blurb` as its own full-width wrapping line (short punctuation nodes like the " : " after a series label are left alone). Verified live: 0 clipped cards at 1000 / 1100 / 1200 / 1280 / 1400px.
