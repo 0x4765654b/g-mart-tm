@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.15.0
+// @version      6.15.1
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -659,6 +659,11 @@
   html.gm-home-enh .gm-home-cell > span.text-size-medium { flex:1 1 55%; min-width:0;
     font-size:13px; line-height:1.3; }
   html.gm-home-enh .gm-home-cell > .div-bubblesblock-space-compact { flex:1 1 100%; }
+  /* v6.15.1: harden wrapping — drop the site's fixed min-width (322px) on the
+     cell box so it can never be wider than its card, and give the loose blurb
+     text (wrapped in .gm-home-blurb by enhanceHome) its own full-width line */
+  html.gm-home-enh .gm-home-cell { min-width:0 !important; max-width:100%; box-sizing:border-box; }
+  html.gm-home-enh .gm-home-cell > .gm-home-blurb { flex:1 1 100%; min-width:0; white-space:normal; overflow-wrap:anywhere; }
   html.gm-home-enh .gm-home-cell > br { display:none; }
   /* TEXT WRAP inside cards: the native title/price sit in a <nobr>; let it wrap */
   html.gm-home-enh td.home-preorder-cell nobr { white-space:normal !important; }
@@ -1578,6 +1583,12 @@
       const box = td.querySelector(':scope > .home-preorder-cell-minwidth_4, :scope > [class*="home-preorder-cell-minwidth"]');
       if (box) {
         box.classList.add('gm-home-cell');
+        // v6.15.1: the blurb is a bare text node in the flex box; give it an
+        // element so it lays out as a wrapping full-width line in every browser
+        [...box.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim().length > 3).forEach(n => {
+          const s = document.createElement('span'); s.className = 'gm-home-blurb';
+          n.replaceWith(s); s.appendChild(n);
+        });
         const coverImg = box.querySelector('img[class*="home-preorder-image"], img[src*="image.cgi"]');
         const coverAnchor = coverImg ? coverImg.closest('a') : null;
         if (coverAnchor) coverAnchor.classList.add('gm-home-cover');
