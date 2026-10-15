@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.4.0
+// @version      6.5.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -275,6 +275,22 @@
     font-weight:700; font-size:14px; padding:8px 14px; border-radius:8px; margin:14px 0 10px; }
   html.gm-home-enh .gm-home-section a { color:#dbeafe !important; font-weight:500; }
   html.gm-dark .gm-home-section { background:linear-gradient(90deg,#152a63,#1b3a82); }
+  /* ===== v6.5: per-cell card via CSS flex ONLY (cover left, text right) =====
+     No DOM is moved — we flex the existing cell and use CSS order to pull the
+     cover (which sits last in source) to the left. Scoped to the single cell,
+     so cells never affect each other → no overlap. */
+  html.gm-home-enh .gm-home-cell { display:flex; flex-wrap:wrap; align-items:flex-start;
+    column-gap:10px; row-gap:2px; }
+  /* cover: left column, pulled ahead of the text, de-floated */
+  html.gm-home-enh .gm-home-cell > .gm-home-cover { order:-1; float:none !important;
+    flex:0 0 auto; align-self:flex-start; margin:0 !important; }
+  html.gm-home-enh .gm-home-cell > .gm-home-cover img { float:none !important; display:block;
+    width:64px; height:auto; border-radius:4px; }
+  /* everything else shares the remaining row space (title/price/blurb stack) */
+  html.gm-home-enh .gm-home-cell > span.text-size-medium { flex:1 1 60%; min-width:0; font-size:13px; line-height:1.3; }
+  html.gm-home-enh .gm-home-cell > .div-bubblesblock-space-compact { flex:1 1 100%; }
+  /* the stray <br>s between blocks are noise once we flex — hide them */
+  html.gm-home-enh .gm-home-cell > br { display:none; }
   /* tile footer: the solicitation blurb / big notes */
   .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
     color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
@@ -1043,6 +1059,17 @@
       td.dataset.gmHome = '1';
       // discount / sale badges pop (add class only — no DOM move)
       td.querySelectorAll('.div-bubbleblock-sale-verycompact, [class*="homebutton-sale"], .actiontext-discount').forEach(b => b.classList.add('gm-home-badge'));
+      // v6.5: per-cell card via CSS flex ONLY (no DOM moves). Tag the visible
+      // desktop cell box (_4) and its cover anchor so CSS can place the cover
+      // on the left with flex `order` — purely visual, nothing is relocated,
+      // so there is no cross-table surgery and no overlap risk.
+      const box = td.querySelector(':scope > .home-preorder-cell-minwidth_4, :scope > [class*="home-preorder-cell-minwidth"]');
+      if (box) {
+        box.classList.add('gm-home-cell');
+        const coverImg = box.querySelector('img[class*="home-preorder-image"], img[src*="image.cgi"]');
+        const coverAnchor = coverImg ? coverImg.closest('a') : null;
+        if (coverAnchor) coverAnchor.classList.add('gm-home-cover');
+      }
     });
     // section banners
     document.querySelectorAll('div.home-section').forEach(s => s.classList.add('gm-home-section'));
