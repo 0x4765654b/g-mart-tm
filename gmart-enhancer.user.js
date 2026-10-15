@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      4.0.0
-// @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
+// @version      5.0.0
+// @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
 // @run-at       document-end
@@ -622,7 +622,32 @@
     // if we have no owned list yet, disable that chip with a hint
     if (!owned.size) { ownedChip.style.opacity = '.5'; ownedChip.title = 'Visit "Your Subscriptions" once so the script can learn your titles'; }
 
-    let dealsOnly = false, hideOwned = false;
+    // ---- restore remembered catalog toggles (persisted via GM) ----
+    // Stored under one JSON key so one read/write covers all of them.
+    let catPrefs = {};
+    try { catPrefs = JSON.parse(GM_getValue('gm_cat_prefs', '{}')) || {}; } catch (e) { catPrefs = {}; }
+    function saveCatPrefs() {
+      GM_setValue('gm_cat_prefs', JSON.stringify({
+        deals: dealsOnly, hideOwned: hideOwned,
+        compact: document.documentElement.classList.contains('gm-cat-compact'),
+        sort: sortSel.value
+      }));
+    }
+
+    let dealsOnly = !!catPrefs.deals;
+    // only restore hideOwned if we actually have an owned list to act on
+    let hideOwned = !!catPrefs.hideOwned && owned.size > 0;
+
+    // reflect restored state in the controls up front
+    dealsChip.classList.toggle('active', dealsOnly);
+    ownedChip.classList.toggle('active', hideOwned);
+    if (catPrefs.sort && [...sortSel.options].some(o => o.value === catPrefs.sort)) {
+      sortSel.value = catPrefs.sort;
+    }
+    if (catPrefs.compact) {
+      document.documentElement.classList.add('gm-cat-compact');
+      densityChip.classList.add('active');
+    }
 
     function apply() {
       const q = search.value.trim().toLowerCase();
@@ -653,12 +678,13 @@
     }
 
     search.addEventListener('input', apply);
-    sortSel.addEventListener('change', apply);
-    dealsChip.addEventListener('click', () => { dealsOnly = !dealsOnly; dealsChip.classList.toggle('active', dealsOnly); apply(); });
-    ownedChip.addEventListener('click', () => { if (!owned.size) return; hideOwned = !hideOwned; ownedChip.classList.toggle('active', hideOwned); apply(); });
+    sortSel.addEventListener('change', () => { apply(); saveCatPrefs(); });
+    dealsChip.addEventListener('click', () => { dealsOnly = !dealsOnly; dealsChip.classList.toggle('active', dealsOnly); apply(); saveCatPrefs(); });
+    ownedChip.addEventListener('click', () => { if (!owned.size) return; hideOwned = !hideOwned; ownedChip.classList.toggle('active', hideOwned); apply(); saveCatPrefs(); });
     densityChip.addEventListener('click', () => {
       const on = document.documentElement.classList.toggle('gm-cat-compact');
       densityChip.classList.toggle('active', on);
+      saveCatPrefs();
     });
 
     apply();
