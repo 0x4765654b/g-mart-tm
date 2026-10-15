@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.14.3
+// @version      6.15.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -197,6 +197,71 @@
   .gm-remove-btn.gm-undo { border-color:#9b9; background:#f3fff3; color:#070; }
   tr.gm-removed td { opacity:.5; text-decoration:line-through; }
   tr.gm-removed .gm-remove-btn { text-decoration:none; }
+
+  /* ===== v6.15: Subscriptions / Pre-Orders "polished list" =====
+     Same native table + inputs (Save Changes untouched), restyled as a clean
+     full-width card: no grid lines, publisher rows as section headers with an
+     item count, frequency as a pill, quiet Remove that brightens on hover. */
+  html.gm-enh table.gm-subs-enhanced { width:100%; border-collapse:separate; border-spacing:0; margin:8px 0 12px;
+    background:#fff; border:1px solid #e1e4e8; border-radius:12px; overflow:hidden; font-size:14px; }
+  html.gm-dark table.gm-subs-enhanced { background:#1d2025; border-color:#2f343b; }
+  html.gm-enh table.gm-subs-enhanced td, html.gm-enh table.gm-subs-enhanced th { border:0 !important; }
+  html.gm-enh table.gm-subs-enhanced tr.invoicebasic-tr-section { background:transparent !important; }
+  html.gm-enh table.gm-subs-enhanced tr.invoicebasic-tr-section th { background:#f6f7f9 !important; color:#6b7280 !important;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:9px 12px; text-align:left;
+    border-bottom:1px solid #e1e4e8 !important; white-space:nowrap; }
+  html.gm-dark table.gm-subs-enhanced tr.invoicebasic-tr-section th { background:#23272e !important; color:#9aa3ae !important; border-bottom-color:#2f343b !important; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item td { padding:7px 12px; border-top:1px solid #f0f1f3 !important; vertical-align:middle; }
+  html.gm-dark table.gm-subs-enhanced tr.gm-item td { border-top-color:#272b31 !important; }
+  html.gm-enh table.gm-subs-enhanced tbody tr.gm-item:nth-of-type(even) { background:transparent; }
+  /* column sizing: qty / price / frequency hug their content, title takes the rest */
+  html.gm-enh table.gm-subs-enhanced tr.gm-item td:first-child,
+  html.gm-enh table.gm-subs-enhanced tr.invoicebasic-tr-section th:first-child { width:1%; white-space:nowrap; text-align:left !important; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item td:not(:first-child):not(:nth-child(2)) { width:1%; white-space:nowrap; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item td:nth-child(2) { font-weight:500; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item td tt { font-family:'SF Mono',Consolas,monospace; color:#4b5563; }
+  html.gm-dark table.gm-subs-enhanced tr.gm-item td tt { color:#aeb6c0; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item input[type=text] { width:34px; text-align:center; padding:3px 4px;
+    border:1px solid #d5d9df; border-radius:6px; font-size:13px; }
+  html.gm-dark table.gm-subs-enhanced tr.gm-item input[type=text] { background:#262a31; border-color:#3a3f47; color:#e3e5e8; }
+  /* publisher section rows -> section headers */
+  html.gm-enh table.gm-subs-enhanced tr.gm-section td { padding:14px 12px 6px; background:transparent !important;
+    font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#005fb2; border-top:1px solid #e1e4e8 !important; }
+  html.gm-dark table.gm-subs-enhanced tr.gm-section td { color:#7fb2ff; border-top-color:#2f343b !important; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-section .text-grayed { text-transform:none; letter-spacing:0; font-weight:400; color:#8a919c; margin-left:4px; }
+  .gm-sec-count { float:right; min-width:20px; text-align:center; padding:1px 8px; border-radius:999px;
+    background:#eef2f7; color:#4b5563; font-size:11px; letter-spacing:0; }
+  html.gm-dark .gm-sec-count { background:#2a2f37; color:#b8c0ca; }
+  /* frequency pill */
+  .gm-freq { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12px; line-height:18px;
+    background:#eef1f5; color:#4b5563; }
+  .gm-freq-monthly { background:#e6f0ff; color:#0b4fa8; }
+  .gm-freq-mini { background:#f1e9ff; color:#6a3fb5; }
+  html.gm-dark .gm-freq { background:#2a2f37; color:#c3cad3; }
+  html.gm-dark .gm-freq-monthly { background:#1f3350; color:#9ec5ff; }
+  html.gm-dark .gm-freq-mini { background:#33284a; color:#cdb6ff; }
+  /* quiet Remove: subtle until the row is hovered (Undo stays visible) */
+  html.gm-enh table.gm-subs-enhanced .gm-remove-btn { margin-left:8px; padding:3px 8px; border-color:transparent; background:transparent; opacity:.55; }
+  html.gm-enh table.gm-subs-enhanced tr.gm-item:hover .gm-remove-btn { opacity:1; border-color:#e7b3b3; background:#fff5f5; }
+  html.gm-dark table.gm-subs-enhanced .gm-remove-btn { color:#ff8a8a; }
+  html.gm-dark table.gm-subs-enhanced tr.gm-item:hover .gm-remove-btn { border-color:#6b3a3a; background:#3a2326; }
+  html.gm-enh table.gm-subs-enhanced .gm-remove-btn.gm-undo { opacity:1; border-color:#9b9; background:#f3fff3; color:#070; }
+  html.gm-dark table.gm-subs-enhanced .gm-remove-btn.gm-undo { border-color:#3f6b45; background:#1f3324; color:#8fe39b; }
+  /* subtotal row */
+  html.gm-enh table.gm-subs-enhanced td.invoicebasic-td-total { padding:10px 12px; background:#f6f7f9; border-top:2px solid #e1e4e8 !important; }
+  html.gm-dark table.gm-subs-enhanced td.invoicebasic-td-total { background:#23272e; border-top-color:#2f343b !important; }
+  html.gm-enh table.gm-subs-enhanced td.invoicebasic-td-total { white-space:nowrap; }
+  /* Save Changes / Cancel Changes under the list (native submits, styling only) */
+  html.gm-enh form:has(table.gm-subs-enhanced) input[type=submit] { padding:7px 16px; border-radius:8px; font-size:14px;
+    cursor:pointer; border:1px solid #cbd0d6; background:#f4f5f7; color:#1a1a1a; margin-right:6px; }
+  html.gm-enh form:has(table.gm-subs-enhanced) input[type=submit][value^="Save" i] { background:#005fb2; border-color:#005fb2; color:#fff; font-weight:600; }
+  html.gm-dark form:has(table.gm-subs-enhanced) input[type=submit] { background:#262a31; border-color:#3a3f47; color:#e3e5e8; }
+  html.gm-dark form:has(table.gm-subs-enhanced) input[type=submit][value^="Save" i] { background:#2d6fd6; border-color:#2d6fd6; color:#fff; }
+  /* group-by-type headers in the same section-header style */
+  html.gm-enh table.gm-subs-enhanced .gm-group-header td { background:#005fb2 !important; padding:8px 12px; text-transform:uppercase; font-size:12px; }
+  /* the grey "Subscriptions automatically create Pre-Orders…" note box */
+  html.gm-dark .div-bubble-info { background:#22262d !important; color:#d7dbe2 !important; border:1px solid #2f343b; }
+  html.gm-dark .div-bubble-info strong, html.gm-dark .div-bubble-info li { color:#e3e5e8 !important; }
 
   /* settings gear */
   #gm-gear { position:fixed; top:10px; right:10px; z-index:9999; width:38px; height:38px; border-radius:50%;
@@ -783,6 +848,32 @@
       }
     });
     if (!itemRows.length) return false;
+
+    // v6.15: "polished list" look — tag the page kind, count items under each
+    // publisher row, and wrap the subscription frequency in a pill. Display
+    // only: the qty <input>s and the form are untouched.
+    table.classList.add('gm-list-' + info.kind);
+    sectionRows.forEach(sec => {
+      let n = 0;
+      for (let tr = sec.nextElementSibling; tr && !tr.classList.contains('gm-section'); tr = tr.nextElementSibling) {
+        if (tr.classList.contains('gm-item')) n++;
+      }
+      const td = sec.firstElementChild;
+      if (td && n && !td.querySelector('.gm-sec-count')) {
+        const c = document.createElement('span'); c.className = 'gm-sec-count'; c.textContent = n; td.appendChild(c);
+      }
+    });
+    if (info.typeIdx != null) itemRows.forEach(r => {
+      const td = [...r.tr.children].filter(c => c.tagName === 'TD')[info.typeIdx];
+      const t = td ? td.textContent.trim() : '';
+      if (!t || td.querySelector('.gm-freq')) return;
+      td.textContent = '';
+      const pill = document.createElement('span');
+      pill.className = 'gm-freq' + (/mini/i.test(t) ? ' gm-freq-mini' : /month/i.test(t) ? ' gm-freq-monthly' : '');
+      pill.textContent = t.replace(/miniseries/i, 'mini');
+      pill.title = t;
+      td.appendChild(pill);
+    });
 
     // ---- make the NATIVE header row sortable (no duplicate header) ----
     const headRow = tbody.querySelector('tr.invoicebasic-tr-section');
@@ -1414,7 +1505,7 @@
       a.style.color = a.dataset.gmPrevColor || '';
       delete a.dataset.gmPrevColor;
     });
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,td.home-preorder-cell,.div-bubble-faq-compact,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,td.home-preorder-cell,.div-bubble-faq-compact,.div-bubble-info,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
       // v6.11 #4 (root-cause): never tag a header button/cell that CONTAINS a
