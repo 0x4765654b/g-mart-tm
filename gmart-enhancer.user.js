@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.10.0
+// @version      6.11.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -107,6 +107,37 @@
   html.gm-dark .menu-dropdown li a { color:#9ec5ff !important; }
   html.gm-dark .menu-dropdown li a:hover { color:#cfe0ff !important; }
   html.gm-dark .menu-dropdown li:hover { background:#30353d !important; }
+  /* v6.11 #4: some header context menus (the ▼Pre-Orders / ▼#NNNNN account /
+     ▼Customer Service / ▼Social fly-outs) are NOT marked .menu-dropdown, so the
+     rule above missed them and the site's own dark-blue links stayed unreadable
+     on the dark menu surface. Broaden: any list-based fly-out whose class hints
+     at a menu/dropdown gets the same dark surface + readable light-blue links.
+     Scoped to [class*="menu"]/[class*="dropdown"] so page body links are
+     untouched. */
+  html.gm-dark [class*="menu-dropdown"] a,
+  html.gm-dark [class*="dropdown-menu"] a,
+  html.gm-dark [class*="menu-popup"] a,
+  html.gm-dark [class*="nav-dropdown"] a,
+  html.gm-dark ul[class*="menu"] li a,
+  html.gm-dark div[class*="menu"] ul li a { color:#9ec5ff !important; }
+  /* v6.11 #4 (fix): a header fly-out can be nested inside a .gm-fixdark-tagged
+     navbutton, whose .gm-fixdark-a rule (navy) beats the plain menu rule on
+     specificity and repaints the links unreadable navy. Add the .gm-fixdark
+     scoped variants so the readable light-blue wins there too. */
+  html.gm-dark .gm-fixdark [class*="menu-dropdown"] a,
+  html.gm-dark .gm-fixdark [class*="dropdown-menu"] a,
+  html.gm-dark .gm-fixdark ul[class*="menu"] li a,
+  html.gm-dark .gm-fixdark div[class*="menu"] ul li a,
+  html.gm-dark [class*="menu-dropdown"].gm-fixdark a,
+  html.gm-dark [class*="menu-dropdown"] .gm-fixdark a { color:#9ec5ff !important; }
+  html.gm-dark [class*="menu-dropdown"] a:hover,
+  html.gm-dark [class*="dropdown-menu"] a:hover,
+  html.gm-dark ul[class*="menu"] li a:hover,
+  html.gm-dark div[class*="menu"] ul li a:hover { color:#dce9ff !important; }
+  html.gm-dark [class*="menu-dropdown"],
+  html.gm-dark [class*="dropdown-menu"],
+  html.gm-dark ul[class*="menu"] li,
+  html.gm-dark div[class*="menu"] ul li { background-color:#262a31 !important; }
 
   /* Dark-mode contrast is finished with a JS pass (gmFixContrast) that finds
      elements whose OWN background stays light and forces dark text on just
@@ -222,6 +253,11 @@
   /* the tile grid (the publisher's nested <ul>) */
   ul.gm-tiled .gm-tile-grid { list-style:none; margin:0; padding:0; display:grid;
     grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-items:start; }
+  /* v6.11 #6: Graphic Novels uses a fixed 3-column grid (home-page feel).
+     Degrade to 2 then 1 column on narrower viewports so tiles never overflow. */
+  html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:repeat(3,1fr); }
+  @media (max-width:900px) { html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:1fr; } }
   /* each comic tile */
   ul.gm-tiled li.gm-tile {
     display:flex; flex-direction:column; background:#fff; border:1px solid #dcdfe4;
@@ -246,6 +282,12 @@
   /* cart icon: the SVG is a dark glyph — make it white in dark mode (the
      blanket dark-mode img brightness(.92) rule only dimmed it) */
   html.gm-dark .gm-tile img[src*="Cart3"] { filter:brightness(0) invert(1) !important; }
+  /* v6.11 #1: heart / wishlist icon is dark-on-dark like the cart icon was.
+     Force the OUTLINE (Light) heart white in dark mode. The FILLED red heart
+     (Shopicons_Filled_Heart_red) signals "already on want list" — leave it red
+     so the state stays meaningful; only neutralize the dim brightness filter. */
+  html.gm-dark img[src*="Light_Heart"] { filter:brightness(0) invert(1) !important; }
+  html.gm-dark img[src*="Filled_Heart"] { filter:none !important; }
   html:not(.gm-dark) .gm-tile img[src*="Cart3"] { filter:none; }
   /* ===== v6.4: HOME / LANDING PAGE — READABILITY ONLY ===== */
   /* Deliberately NO layout changes. The home page is a legacy nested-table
@@ -425,11 +467,27 @@
   /* TEXT WRAP inside cards: the native title/price sit in a <nobr>; let it wrap */
   html.gm-home-enh td.home-preorder-cell nobr { white-space:normal !important; }
   html.gm-home-enh td.home-preorder-cell strong { white-space:normal !important; overflow-wrap:anywhere; }
-  /* tile footer: the solicitation blurb / big notes */
-  .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
-    color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
+  /* tile footer: the solicitation blurb / big notes.
+     v6.11 #5: HOVER-REVEAL. Collapsed to zero height by default so the long
+     solicitation text no longer fills the tile (the "white on black" wall);
+     expands smoothly when the tile is hovered. A small "ℹ synopsis" cue shows
+     there's more. The note line (release highlight) stays visible even when
+     collapsed since it's short + important. */
+  .gm-tile-foot { border-top:1px dashed #d9dde3; padding:0 12px; font-size:11.5px; line-height:1.4;
+    color:#55606e; background:#f8f9fb; max-height:0; overflow:hidden;
+    transition:max-height .28s ease, padding .28s ease; }
+  .gm-tile:hover .gm-tile-foot { max-height:220px; overflow:auto; padding:8px 12px; }
   html.gm-dark .gm-tile-foot { border-top-color:#333842; color:#aeb6c2; background:#191c21; }
   .gm-tile-foot:empty { display:none; }
+  /* hover cue: a subtle "synopsis ▾" hint pinned under the actions, only when
+     the tile actually has footer content (set via .gm-has-foot by JS) */
+  .gm-tile.gm-has-foot .gm-tile-body::after { content:"ℹ synopsis"; display:inline-block;
+    margin-top:4px; font-size:10px; letter-spacing:.02em; color:#8891a0; opacity:.75; }
+  .gm-tile.gm-has-foot:hover .gm-tile-body::after { opacity:0; }
+  html.gm-dark .gm-tile.gm-has-foot .gm-tile-body::after { color:#7f8a99; }
+  /* the short note (release highlight) should stay visible even collapsed:
+     lift it out of the collapsing footer by letting it show above the fold */
+  .gm-tile .gm-tile-note { max-height:none; }
   .gm-tile-note { color:#9a5b00; font-weight:600; display:block; margin-bottom:3px; }
   html.gm-dark .gm-tile-note { color:#ffcf8a; }
   /* keep the site's price-code colors readable in tiles (dark mode): the price
@@ -808,9 +866,21 @@
     const uls = [...document.querySelectorAll('ul.ul-none')];
     const topUl = uls.find(ul => [...ul.children].some(li =>
         li.tagName === 'LI' && li.querySelector(PUB_STRONG) && li.querySelector(':scope > ul'))
-      && /quick_add|quick_remove/.test(ul.innerHTML));
+      && /quick_add|quick_remove|SUBSCRIBE|PRE-?ORDER|click_compact/i.test(ul.innerHTML));
+      // NOTE: the broadened keywords above only help pages that already use the
+      // ul.ul-none publisher-group structure. The Pre-Orders *catalog* page
+      // (form > div.div-bubble-veryfaint-compact items, NO ul.ul-none) is
+      // handled separately by enhancePreorderCatalog() — not here.
     if (!topUl || topUl.dataset.gmCat) return false;
     topUl.dataset.gmCat = '1';
+
+    // v6.11 #6: Graphic Novels should use a fixed 3-column card grid (matching
+    // the home page feel) rather than the responsive auto-fill grid the other
+    // catalog pages use. Detect the GN page by its <title> (robust across the
+    // opaque context_change tokens) and tag the document so CSS can pin 3 cols.
+    if (/graphic novel/i.test(document.title)) {
+      document.documentElement.classList.add('gm-gn');
+    }
 
     // collect publisher groups + their items
     const groups = [];
@@ -1103,7 +1173,7 @@
           b.textContent = blurb.textContent.replace(/\s+/g, ' ').trim();
           foot.appendChild(b);
         }
-        if (foot.childNodes.length) li.appendChild(foot);
+        if (foot.childNodes.length) { li.appendChild(foot); li.classList.add('gm-has-foot'); }
       });
     });
   }
@@ -1147,9 +1217,21 @@
     // because they contain a small cyan note-row would wrongly darken the whole
     // tile incl. the price). The catalog's own cyan note gets handled by the
     // tile-footer styling instead.
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile');
+    // v6.11 #4: also skip header fly-out menus — the dedicated dark-menu rule
+    // styles their links; letting gmFixContrast tag them forces an inline navy
+    // (#0a3d8f) on the links that is unreadable on the dark menu surface and
+    // beats the stylesheet rule (inline wins). Skipping them here leaves the
+    // readable light-blue rule in charge.
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
+      // v6.11 #4 (root-cause): never tag a header button/cell that CONTAINS a
+      // fly-out menu. Tagging it adds .gm-fixdark, whose .gm-fixdark a:link
+      // rule (specificity with the link pseudo) repaints the nested menu links
+      // unreadable navy and beats the dark-menu rule. Leaving these untagged
+      // keeps the menu links light-blue. (The header button's own label is
+      // white-on-cyan native styling, which stays readable without tagging.)
+      if (el.querySelector('[class*="menu-dropdown"],[class*="dropdown-menu"]')) return;
       const bg = getComputedStyle(el).backgroundColor;
       const m = bg.match(/\d+(\.\d+)?/g);
       if (!m || m.length < 3) return;
@@ -1162,6 +1244,10 @@
         // global dark-mode link rule (which otherwise keeps them light-blue on
         // this pale strip). Record the original so we can undo on toggle-off.
         el.querySelectorAll('a').forEach(a => {
+          // v6.11 #4: never recolor links that live in a header fly-out menu —
+          // those are owned by the dark-menu rule (readable light-blue). An
+          // ancestor pale strip would otherwise force unreadable navy on them.
+          if (a.closest('[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]')) return;
           if (a.dataset.gmPrevColor === undefined) a.dataset.gmPrevColor = a.style.color || '';
           a.style.setProperty('color', '#0a3d8f', 'important');
         });
