@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.14.1
+// @version      6.14.2
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -987,6 +987,32 @@
     catch (e) { return new Set(); }
   }
 
+  // v6.14.1: Back Issues "Popular Titles" pages (e.g. Darth Maul) are FLAT —
+  // a loose <span class="text-size-medium">Publisher</span> sits next to each
+  // ul.ul-none of items, directly under <body>, instead of a publisher <li>
+  // wrapping a nested <ul>. Rebuild them into the nested shape so the normal
+  // catalog path (tiles, toolbar, publisher merge) applies. Only moves the
+  // native lists — no forms here, item handlers are inline onclicks.
+  function normalizeFlatCatalog() {
+    const heads = [...document.querySelectorAll('span.text-size-medium, span.text-size-large')].filter(s => {
+      const n = s.nextElementSibling;
+      return !s.closest('li') && n && n.matches('ul.ul-none') && n.querySelector('span[onclick*="click_comic_description"]');
+    });
+    if (!heads.length) return;
+    const wrap = document.createElement('ul');
+    wrap.className = 'ul-none gm-flat-catalog';
+    heads[0].parentNode.insertBefore(wrap, heads[0]);
+    heads.forEach(s => {
+      const list = s.nextElementSibling;
+      const li = document.createElement('li');
+      const strong = document.createElement('strong');
+      strong.textContent = s.textContent.trim();
+      li.append(strong, list);
+      wrap.appendChild(li);
+      s.remove();
+    });
+  }
+
   // ----- CATALOG ENHANCER ----------------------------------------------
   function enhanceCatalog() {
     // Catalog pages have a <ul class="ul-none"> whose children include
@@ -995,6 +1021,7 @@
     // EITHER wrapped in span.text-size-large (Current Issues / browse / search)
     // OR a bare direct-child <strong> (Graphic Novels). Match both.
     const PUB_STRONG = ':scope > span.text-size-large > strong, :scope > strong';
+    normalizeFlatCatalog();
     const uls = [...document.querySelectorAll('ul.ul-none')];
     const topUl = uls.find(ul => [...ul.children].some(li =>
         li.tagName === 'LI' && li.querySelector(PUB_STRONG) && li.querySelector(':scope > ul'))
