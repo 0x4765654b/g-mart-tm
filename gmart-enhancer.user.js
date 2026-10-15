@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.1.0
+// @version      6.2.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -237,6 +237,16 @@
   .gm-tile-title { font-size:13.5px; line-height:1.35; font-weight:600; color:#15181d; }
   html.gm-dark .gm-tile-title { color:#eef0f3; }
   .gm-tile-actions { display:flex; gap:8px; margin-top:2px; }
+  /* ---- v6.2: title on top, [cart][status/price] on the row below it ---- */
+  .gm-tile-body > .gm-tile-title { order:-1; }           /* lift title to top */
+  .gm-tile-actionrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-family:'SF Mono',Consolas,monospace; }
+  .gm-tile-actionrow .div-bubblesblock-space-compact { display:flex; align-items:center; gap:6px; margin:0; }
+  .gm-tile-actionrow img[id*="comic_cart"] { cursor:pointer; flex:0 0 auto; }
+  /* cart icon: the SVG is a dark glyph — make it white in dark mode (the
+     blanket dark-mode img brightness(.92) rule only dimmed it) */
+  html.gm-dark .gm-tile img[src*="Cart3"] { filter:brightness(0) invert(1) !important; }
+  html:not(.gm-dark) .gm-tile img[src*="Cart3"] { filter:none; }
   /* tile footer: the solicitation blurb / big notes */
   .gm-tile-foot { border-top:1px dashed #d9dde3; padding:8px 12px; font-size:11.5px; line-height:1.4;
     color:#55606e; background:#f8f9fb; max-height:84px; overflow:auto; }
@@ -869,6 +879,26 @@
         // the item's single inner span holds everything → it's the tile body
         const inner = li.querySelector(':scope > span') || li;
         inner.classList.add('gm-tile-body');
+        // ---- v6.2: reorder — title on top, then a [cart][status/price] row ----
+        // Tag the title (▶ span) so CSS can lift it to the top of the tile.
+        const titleEl = inner.querySelector('span.onclick-cursor');
+        if (titleEl) titleEl.classList.add('gm-tile-title');
+        // Build an action row holding the cart icon(s) + the price block, so
+        // the status dot/price sit right beside the cart. We MOVE the existing
+        // nodes (keeps the cart onclick handlers intact).
+        if (!inner.querySelector(':scope > .gm-tile-actionrow')) {
+          const row = document.createElement('div');
+          row.className = 'gm-tile-actionrow';
+          const carts = [...inner.querySelectorAll(':scope > img[id*="comic_cart"]')];
+          const priceBlock = inner.querySelector(':scope > .div-bubblesblock-space-compact');
+          const saleBadge = inner.querySelector(':scope > .div-bubbleblock-sale-verycompact');
+          // place the row right after the title in DOM order
+          if (titleEl && titleEl.nextSibling) inner.insertBefore(row, titleEl.nextSibling);
+          else inner.appendChild(row);
+          carts.forEach(c => row.appendChild(c));        // cart icon(s) first
+          if (priceBlock) row.appendChild(priceBlock);   // then status dot + price
+          if (saleBadge) row.appendChild(saleBadge);     // then the save % badge
+        }
         // footer = the hidden solicitation blurb (.display-none) + any cyan note
         const foot = document.createElement('div');
         foot.className = 'gm-tile-foot';
