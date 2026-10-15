@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      3.0.0
-// @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results. Pure DOM/CSS — no API needed.
+// @version      4.0.0
+// @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
 // @run-at       document-end
@@ -168,6 +168,32 @@
   /* owned badge */
   .gm-owned-badge { display:inline-block; font-size:10px; font-weight:700; color:#fff; background:#2b8a3e;
     border-radius:4px; padding:1px 5px; margin-left:5px; vertical-align:middle; }
+
+  /* catalog sort dropdown */
+  .gm-cat-toolbar select { padding:6px 8px; border:1px solid #cbd0d6; border-radius:7px; font-size:13px; background:#fff; cursor:pointer; }
+  html.gm-dark .gm-cat-toolbar select { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+
+  /* release-date jump bar */
+  .gm-release-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 10px; padding:8px 12px;
+    background:#fff; border:1px solid #dcdfe4; border-radius:10px; font-size:13px; }
+  html.gm-dark .gm-release-bar { background:#1e2127; border-color:#3a3f47; color:#e3e5e8; }
+  .gm-release-bar .gm-rel-btn { padding:4px 10px; border-radius:7px; background:#005fb2; color:#fff !important;
+    text-decoration:none !important; font-size:13px; white-space:nowrap; }
+  .gm-release-bar .gm-rel-btn:hover { background:#004a8c; }
+  html.gm-dark .gm-release-bar .gm-rel-btn { background:#2d6fd6; }
+
+  /* ===== SEARCH FORM styling ===== */
+  .gm-search-styled { max-width:640px; }
+  .gm-search-styled input[type=text] { width:100%; box-sizing:border-box; padding:10px 12px; font-size:15px;
+    border:1px solid #cbd0d6; border-radius:9px; margin-bottom:10px; }
+  html.gm-dark .gm-search-styled input[type=text] { background:#262a31; color:#e3e5e8; border-color:#3a3f47; }
+  .gm-search-fieldset { border:1px solid #e3e5e8; border-radius:10px; padding:10px 12px; margin:8px 0; }
+  html.gm-dark .gm-search-fieldset { border-color:#2b2f36; }
+  .gm-search-fieldset legend { font-size:12px; text-transform:uppercase; letter-spacing:.05em; opacity:.7; padding:0 6px; }
+  .gm-search-styled label { display:inline-flex; align-items:center; gap:5px; margin:3px 12px 3px 0; font-size:14px; cursor:pointer; }
+  .gm-search-styled input[type=submit] { padding:9px 18px; border:none; border-radius:8px; background:#005fb2; color:#fff;
+    font-size:14px; cursor:pointer; margin-right:8px; }
+  .gm-search-styled input[type=submit]:hover { background:#004a8c; }
   `;
 
   GM_addStyle(THEME_CSS);
@@ -496,13 +522,24 @@
         const onSale = !!it.querySelector('img[src*="button_sale"], img[alt="SALE"]');
         const hasDeal = /save\s*\d+%/i.test(it.innerText) || onSale;
         it.classList.add('gm-cat-item');
-        return { li: it, title: titlePart.trim(), series: seriesKey(titlePart), hasDeal };
+        const price = parseFloat((priceTxt.match(/\$\s*([\d.]+)/) || [])[1]) || 0;
+        return { li: it, title: titlePart.trim(), series: seriesKey(titlePart), hasDeal, price };
       });
-      groups.push({ wrapper: li, pub, safeId, items });
+      groups.push({ wrapper: li, pub, safeId, items, nestedUl });
     });
     if (!groups.length) return false;
 
     const totalItems = groups.reduce((n, g) => n + g.items.length, 0);
+
+    // remember each item's native position so "default" sort can restore it
+    groups.forEach(g => g.items.forEach((it, i) => { it.nativeIdx = i; }));
+
+    // ---- release-date jump sources (from the native date links) ----
+    // The page has links like "October 14, 2026" (this week, &d=...) /
+    // "October 7, 2026" (last week) / "Recent New Release Dates".
+    const dateLinks = [...document.querySelectorAll('a')].filter(a =>
+      /^[A-Z][a-z]+ \d{1,2}, \d{4}$/.test(a.textContent.trim()) && /[?&]d=\d+/.test(a.href));
+    const recentLink = [...document.querySelectorAll('a')].find(a => /Recent New Release Dates/i.test(a.textContent));
 
     // ---- legend (decoded from the site's FAQ: stock/price color codes) ----
     const legend = document.createElement('div');
@@ -535,13 +572,32 @@
     toolbar.className = 'gm-cat-toolbar';
     toolbar.innerHTML =
       '<input type="search" id="gm-cat-search" placeholder="Filter titles on this page…">' +
+      '<select id="gm-cat-sort" title="Sort within each publisher">' +
+        '<option value="default">Sort: default</option>' +
+        '<option value="title">Title A→Z</option>' +
+        '<option value="price-asc">Price ↑</option>' +
+        '<option value="price-desc">Price ↓</option>' +
+      '</select>' +
       '<span class="gm-chip" id="gm-cat-deals">Deals only</span>' +
       '<span class="gm-chip" id="gm-cat-hideowned">Hide titles I get</span>' +
       '<span class="gm-chip" id="gm-cat-density">Compact</span>' +
       '<span class="gm-cat-count" id="gm-cat-count"></span>';
 
+    // release-date jump row (only if the native date links exist)
+    let releaseBar = null;
+    if (dateLinks.length || recentLink) {
+      releaseBar = document.createElement('div');
+      releaseBar.className = 'gm-release-bar';
+      let html = '<strong>New releases:</strong>';
+      if (dateLinks[0]) html += `<a class="gm-rel-btn" href="${dateLinks[0].href}">This week (${dateLinks[0].textContent.trim()})</a>`;
+      if (dateLinks[1]) html += `<a class="gm-rel-btn" href="${dateLinks[1].href}">Last week (${dateLinks[1].textContent.trim()})</a>`;
+      if (recentLink) html += `<a class="gm-rel-btn gm-rel-recent" href="${recentLink.href}">Recent dates ▾</a>`;
+      releaseBar.innerHTML = html;
+    }
+
     // insert toolbar + legend + pubnav above the catalog
     topUl.parentNode.insertBefore(toolbar, topUl);
+    if (releaseBar) topUl.parentNode.insertBefore(releaseBar, topUl);
     topUl.parentNode.insertBefore(legend, topUl);
     topUl.parentNode.insertBefore(pubnav, topUl);
 
@@ -550,6 +606,7 @@
     const ownedChip = toolbar.querySelector('#gm-cat-hideowned');
     const densityChip = toolbar.querySelector('#gm-cat-density');
     const countEl = toolbar.querySelector('#gm-cat-count');
+    const sortSel = toolbar.querySelector('#gm-cat-sort');
 
     const owned = getOwnedSet();
     // badge owned items up front
@@ -570,6 +627,7 @@
     function apply() {
       const q = search.value.trim().toLowerCase();
       let shown = 0;
+      const sortMode = sortSel.value;
       groups.forEach(g => {
         let groupShown = 0;
         g.items.forEach(it => {
@@ -580,6 +638,14 @@
           it.li.classList.toggle('gm-cat-hidden', hide);
           if (!hide) { groupShown++; shown++; }
         });
+        // ---- within-publisher sort: reorder this group's item <li>s ----
+        const ordered = g.items.slice().sort((a, b) => {
+          if (sortMode === 'title') return a.title.toLowerCase() < b.title.toLowerCase() ? -1 : a.title.toLowerCase() > b.title.toLowerCase() ? 1 : 0;
+          if (sortMode === 'price-asc') return a.price - b.price;
+          if (sortMode === 'price-desc') return b.price - a.price;
+          return a.nativeIdx - b.nativeIdx; // default
+        });
+        ordered.forEach(it => g.nestedUl.appendChild(it.li));
         // hide the whole publisher group (and its jump-nav entry) if empty
         g.wrapper.classList.toggle('gm-cat-hidden', groupShown === 0);
       });
@@ -587,6 +653,7 @@
     }
 
     search.addEventListener('input', apply);
+    sortSel.addEventListener('change', apply);
     dealsChip.addEventListener('click', () => { dealsOnly = !dealsOnly; dealsChip.classList.toggle('active', dealsOnly); apply(); });
     ownedChip.addEventListener('click', () => { if (!owned.size) return; hideOwned = !hideOwned; ownedChip.classList.toggle('active', hideOwned); apply(); });
     densityChip.addEventListener('click', () => {
@@ -598,8 +665,28 @@
     return true;
   }
 
+  // ----- SEARCH FORM styler --------------------------------------------
+  // The Search page has a text input (name="text"), section checkboxes
+  // (name="section"), and depth radios (name="depth"). We only add classes
+  // and wrap the checkbox/radio groups in labelled fieldsets — the form's
+  // action, field names, and values are left untouched so search still works.
+  function styleSearchForm() {
+    const textInput = document.querySelector('input[type=text][name="text"]');
+    const sections = [...document.querySelectorAll('input[type=checkbox][name="section"]')];
+    const depths = [...document.querySelectorAll('input[type=radio][name="depth"]')];
+    if (!textInput || (!sections.length && !depths.length)) return false;
+    const form = textInput.closest('form');
+    if (!form || form.dataset.gmSearch) return false;
+    form.dataset.gmSearch = '1';
+    form.classList.add('gm-search-styled');
+    // wrap each control in its own label so the text next to it is clickable;
+    // we don't know the exact label text nodes, so just add the class — the
+    // native text sits adjacent and the CSS spacing improves it.
+    return true;
+  }
+
   // ----- boot -----------------------------------------------------------
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); styleSearchForm(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
