@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.11.0
+// @version      6.12.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -258,6 +258,46 @@
   html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:repeat(3,1fr); }
   @media (max-width:900px) { html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:repeat(2,1fr); } }
   @media (max-width:560px) { html.gm-gn ul.gm-tiled .gm-tile-grid { grid-template-columns:1fr; } }
+  /* ===== v6.12: PRE-ORDERS CATALOG tiles =====
+     The pre-orders page container (div.div-bubbles-space-compact-clear) becomes
+     a responsive card grid; each bubble (div.div-bubble-veryfaint-compact) is a
+     card. These are divs, not li, so target the grid + bubble directly. */
+  html.gm-po .gm-po-grid { display:grid; grid-template-columns:repeat(3,1fr);
+    gap:12px; align-items:start; list-style:none; margin:10px 0; padding:0; }
+  @media (max-width:900px) { html.gm-po .gm-po-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { html.gm-po .gm-po-grid { grid-template-columns:1fr; } }
+  html.gm-po .gm-po-tile { display:flex; flex-direction:column; background:#fff;
+    border:1px solid #dcdfe4; border-radius:10px; padding:10px 12px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  html.gm-dark.gm-po .gm-po-tile { background:#1d2024; border-color:#2f343b; }
+  html.gm-po .gm-po-tile .gm-tile-title { font-weight:600; font-size:13px; display:block;
+    margin-bottom:6px; cursor:pointer; }
+  html.gm-dark.gm-po .gm-po-tile .gm-tile-title { color:#e8eaed; }
+  html.gm-dark.gm-po .gm-po-tile .gm-tile-title .text-size-large { color:#e8eaed; }
+  /* dark-mode text: the site paints the bubble content near-black (#111) with
+     high specificity, so force readable light text on the tile AND all its
+     descendants (title, credits, blurb, controls). Price-code colors and sale
+     badges are their own site colors and stay as-is. Links go light-blue. */
+  html.gm-dark.gm-po .gm-po-tile,
+  html.gm-dark.gm-po .gm-po-tile span,
+  html.gm-dark.gm-po .gm-po-tile strong,
+  html.gm-dark.gm-po .gm-po-tile div,
+  html.gm-dark.gm-po .gm-po-tile font { color:#d7dbe2 !important; }
+  html.gm-dark.gm-po .gm-po-tile a { color:#9ec5ff !important; }
+  /* beat the gmFixContrast rule .gm-fixdark :not(...) which can tag an
+     ANCESTOR (the form/wrapper) and repaint tile text near-black with high
+     specificity. Re-scope the light-text rule THROUGH .gm-fixdark so it wins. */
+  html.gm-dark.gm-po .gm-fixdark .gm-po-tile,
+  html.gm-dark.gm-po .gm-fixdark .gm-po-tile span,
+  html.gm-dark.gm-po .gm-fixdark .gm-po-tile strong,
+  html.gm-dark.gm-po .gm-fixdark .gm-po-tile div,
+  html.gm-dark.gm-po .gm-po-tile.gm-fixdark span,
+  html.gm-dark.gm-po .gm-po-tile .text-size-large,
+  html.gm-dark.gm-po .gm-po-tile.gm-fixdark { color:#d7dbe2 !important; }
+  html.gm-dark.gm-po .gm-fixdark .gm-po-tile a { color:#9ec5ff !important; }
+  /* preserve the sale/discount badge legibility (its own bright bg) */
+  html.gm-dark.gm-po .gm-po-tile [class*="sale"] { color:inherit; }
+  /* the footer blurb reuses the shared .gm-tile-foot hover-reveal rules */
   /* each comic tile */
   ul.gm-tiled li.gm-tile {
     display:flex; flex-direction:column; background:#fff; border:1px solid #dcdfe4;
@@ -1222,7 +1262,7 @@
     // (#0a3d8f) on the links that is unreadable on the dark menu surface and
     // beats the stylesheet rule (inline wins). Skipping them here leaves the
     // readable light-blue rule in charge.
-    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
+    const skip = el => el.closest('.gm-cat-toolbar,.gm-release-bar,.gm-legend,.gm-pubnav,#gm-panel,#gm-gear,.gm-subs-toolbar,table.gm-subs-enhanced,ul.ul-none,.gm-pub-group,.gm-cat-item,.gm-tile,.gm-skip-fixdark,.gm-po-grid,[class*="menu-dropdown"],[class*="dropdown-menu"],ul[class*="menu"],div[class*="menu"]');
     document.querySelectorAll('td,th,tr,table,div,span,li,p,font').forEach(el => {
       if (skip(el)) return;
       // v6.11 #4 (root-cause): never tag a header button/cell that CONTAINS a
@@ -1232,6 +1272,9 @@
       // keeps the menu links light-blue. (The header button's own label is
       // white-on-cyan native styling, which stays readable without tagging.)
       if (el.querySelector('[class*="menu-dropdown"],[class*="dropdown-menu"]')) return;
+      // v6.12: also never tag an ancestor that wraps the pre-orders tile grid —
+      // tagging it repaints every tile's text near-black via .gm-fixdark.
+      if (el.querySelector('.gm-po-grid')) return;
       const bg = getComputedStyle(el).backgroundColor;
       const m = bg.match(/\d+(\.\d+)?/g);
       if (!m || m.length < 3) return;
@@ -1344,7 +1387,73 @@
     return true;
   }
 
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); gmFixContrast(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhancePreorderCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); gmFixContrast(); }
+
+  // ===== v6.12: PRE-ORDERS CATALOG page =====
+  // Reached via Subscriptions & Pre-Orders > Pre-Orders > <publisher>. Unlike
+  // the ul.ul-none catalog pages, this is a <form> (Record Orders / Cancel
+  // Changes) whose items are FLAT sibling divs: div.div-bubble-veryfaint-compact
+  // with id="bubble_<id>", all inside one div.div-bubbles-space-compact-clear,
+  // with NO publisher grouping. Each bubble has:
+  //   - title span.onclick-cursor#pretext_<id> (▶ + strong>span.text-size-large);
+  //     clicking it runs the site's click_pretext_description(<id>) to toggle
+  //     the solicitation text — we keep that handler intact.
+  //   - SUBSCRIBE / PRE-ORDER / PRE-only controls, qty input (name=qsub_<id>)
+  //   - price text ($2.60 $3.99), a discount gif (percentNNoff_red.png)
+  //   - a .display-none solicitation blurb
+  // We tile the flat bubbles into the same card grid used elsewhere (move the
+  // bubble divs into a grid wrapper — MOVE, never clone, so the native inputs
+  // and onclick handlers keep working), move the blurb into a hover-reveal
+  // footer, and tag the document gm-po so CSS can scope. We also mark bubbles
+  // gm-skip-fixdark so the contrast pass stops boxing them pale (the "white on
+  // black" wall the user reported).
+  function enhancePreorderCatalog() {
+    const bubbles = [...document.querySelectorAll('div[id^="bubble_"]')];
+    if (bubbles.length < 2) return false;
+    // guard: must be the pre-orders catalog (Record Orders submit present)
+    const isPO = [...document.querySelectorAll('input[type=submit]')]
+      .some(b => /record orders/i.test(b.value || ''));
+    if (!isPO) return false;
+    const container = bubbles[0].parentElement;
+    if (!container || container.dataset.gmPo) return false;
+    container.dataset.gmPo = '1';
+    document.documentElement.classList.add('gm-po');
+    container.classList.add('gm-tiled', 'gm-tile-grid', 'gm-po-grid');
+    bubbles.forEach(b => {
+      if (b.dataset.gmPoTile) return;
+      b.dataset.gmPoTile = '1';
+      b.classList.add('gm-tile', 'gm-po-tile', 'gm-skip-fixdark');
+      // belt-and-suspenders: ensure the bubble is not left tagged .gm-fixdark
+      // (whose high-specificity :not() rule would repaint tile text near-black).
+      // gmFixContrast already skips .gm-skip-fixdark, but strip any pre-existing
+      // tag + its inline link colors so the tile's own light-text rule wins.
+      b.classList.remove('gm-fixdark');
+      b.querySelectorAll('a[data-gm-prev-color]').forEach(a => {
+        a.style.removeProperty('color'); a.removeAttribute('data-gm-prev-color');
+      });
+      // title: the pretext span (keep its native click-to-toggle handler)
+      const title = b.querySelector('span[id^="pretext_"]');
+      if (title) title.classList.add('gm-tile-title');
+      // move the hidden solicitation blurb into a hover-reveal footer
+      const blurb = b.querySelector('.display-none');
+      // NOTE: the qty input is ALSO .display-none (name=qsub_*). Only treat a
+      // .display-none SPAN with substantial text as the blurb, never an input.
+      let blurbSpan = null;
+      b.querySelectorAll('span.display-none, div.display-none').forEach(s => {
+        if (!blurbSpan && (s.textContent || '').trim().length > 40) blurbSpan = s;
+      });
+      if (blurbSpan) {
+        const foot = document.createElement('div');
+        foot.className = 'gm-tile-foot';
+        const d = document.createElement('div');
+        d.textContent = blurbSpan.textContent.replace(/\s+/g, ' ').trim();
+        foot.appendChild(d);
+        b.appendChild(foot);
+        b.classList.add('gm-has-foot');
+      }
+    });
+    return true;
+  }
 
   // ===== v6.10: CART / CHECKOUT page =====
   // The cart is a <form.max-width-desktop> with a line-item table (checkbox
