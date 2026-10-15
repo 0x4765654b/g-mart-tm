@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         G-Mart Comics Enhancer
 // @namespace    https://www.g-mart.com/
-// @version      6.12.0
+// @version      6.13.0
 // @description  Reskin G-Mart Comics + sortable/filterable subscription & pre-order management + a catalog browser enhancer (live filter, publisher jump-nav, hide-owned, deals-only, price legend, density, within-publisher sort, release-date jump, remembered toggles) for Current Issues / Back Issues / Graphic Novels / publisher browse / search results, plus a styled Search form. Pure DOM/CSS — no API needed.
 // @author       Ox
 // @match        https://www.g-mart.com/*
@@ -298,6 +298,49 @@
   /* preserve the sale/discount badge legibility (its own bright bg) */
   html.gm-dark.gm-po .gm-po-tile [class*="sale"] { color:inherit; }
   /* the footer blurb reuses the shared .gm-tile-foot hover-reveal rules */
+  /* ===== v6.13: dark-mode contrast fixes =====
+     #2 SALE BADGES: the yellow/colored sale+discount badges were getting
+     near-white text from the blanket dark-mode light-text rules, giving
+     white-on-yellow (~1.1:1). Force DARK text on these bright badges across
+     the whole site (home, catalog, pre-order tiles). Their background is the
+     site's own bright yellow/green, so dark ink is the readable choice. */
+  html.gm-dark .div-bubbleblock-sale-verycompact,
+  html.gm-dark .div-bubblesblock-sale-verycompact,
+  html.gm-dark [class*="bubbleblock-sale"],
+  html.gm-dark [class*="bubblesblock-sale"],
+  html.gm-dark [class*="homebutton-sale"],
+  html.gm-dark .div-bubbleblock-sale-verycompact *,
+  html.gm-dark [class*="bubbleblock-sale"] *,
+  html.gm-dark.gm-po .gm-po-tile [class*="sale"],
+  html.gm-dark.gm-po .gm-po-tile [class*="sale"] * { color:#1a1300 !important; }
+  /* the small discount pill ("NN%off" on red) keeps white on its dark-red bg */
+  html.gm-dark [class*="percent"][class*="off"],
+  html.gm-dark img[src*="percent"] { color:#fff; }
+  /* #1 ACCOUNT NAME: the header "#NNNNN Your Name" was dark-on-dark
+     when gmFixContrast tagged its header cell. Force it readable light and keep
+     it out of the fixdark darkening. The account/name link lives in the top
+     header row near the Customer Service / Social fly-outs. */
+  html.gm-dark .gm-acct-name,
+  html.gm-dark .gm-acct-name * { color:#e8eaed !important; }
+  html.gm-dark .gm-fixdark .gm-acct-name,
+  html.gm-dark .gm-fixdark .gm-acct-name * { color:#e8eaed !important; }
+  /* #3 TEAL STRIPS: the pale-cyan legacy strips on the Subscriptions hub
+     (▼Subscriptions, Pre-Orders For December, the Comics/Bag-Board info panel)
+     are tagged by gmFixContrast; in dark mode make those tagged light strips a
+     muted dark surface with light text instead of glaring teal slabs. This is
+     scoped to the subs hub via gm-subshub so it does not touch catalog tiles. */
+  html.gm-dark.gm-subshub .gm-fixdark { background:#1f242b !important; }
+  html.gm-dark.gm-subshub .gm-fixdark,
+  html.gm-dark.gm-subshub .gm-fixdark :not(a) { color:#d7dbe2 !important; }
+  html.gm-dark.gm-subshub .gm-fixdark a { color:#9ec5ff !important; }
+  /* #4 HOME TILE TITLE WRAP: the featured-cell title still clipped in some
+     cells. Broaden the wrap rule to the title link + any inner span, not just
+     strong/nobr, so long titles wrap instead of being cut at the tile edge. */
+  html.gm-home-enh td.home-preorder-cell a,
+  html.gm-home-enh td.home-preorder-cell span,
+  html.gm-home-enh .gm-home-cell a,
+  html.gm-home-enh .gm-home-cell nobr,
+  html.gm-home-enh .gm-home-cell span { white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; }
   /* each comic tile */
   ul.gm-tiled li.gm-tile {
     display:flex; flex-direction:column; background:#fff; border:1px solid #dcdfe4;
@@ -1387,7 +1430,31 @@
     return true;
   }
 
-  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhancePreorderCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); gmFixContrast(); }
+  function boot() { buildGear(); const didList = enhanceList(); captureOwnedTitles(didList); enhanceCatalog(); enhancePreorderCatalog(); enhanceHome(); enhanceAccountPages(); enhanceBackIssues(); enhanceCart(); styleSearchForm(); tagHeaderAndHub(); gmFixContrast(); }
+
+  // ===== v6.13: tag the account-name element + the Subscriptions hub =====
+  // The header shows the logged-in account as "#NNNNN Your Name" in a
+  // small div/span. We tag it gm-acct-name so CSS can force it readable in dark
+  // mode (it was dark-on-dark after gmFixContrast tagged its header cell). We
+  // also flag the Subscriptions & Pre-Orders hub page (which carries the pale
+  // cyan legacy strips) with documentElement.gm-subshub so the teal-darkening
+  // CSS is scoped to just that page. Runs BEFORE gmFixContrast so the tag is in
+  // place; gmFixContrast then still tags the strips, and the gm-subshub CSS
+  // recolors them dark.
+  function tagHeaderAndHub() {
+    // account name: a small element whose text starts with the #NNNNN account id
+    const cands = [...document.querySelectorAll('div,span,a,td')];
+    for (const e of cands) {
+      if (e.children.length > 2) continue;
+      const t = (e.textContent || '').trim();
+      if (/^\u25bc?\s*#\d{3,}\b/.test(t) && t.length < 48) { e.classList.add('gm-acct-name'); break; }
+    }
+    // subscriptions hub: the page whose body names the hub + the pre-orders rows
+    const txt = document.body ? document.body.innerText : '';
+    if (/Pre-Orders For \w+ \d{4}/.test(txt) && /\u25bcSubscriptions/.test(txt)) {
+      document.documentElement.classList.add('gm-subshub');
+    }
+  }
 
   // ===== v6.12: PRE-ORDERS CATALOG page =====
   // Reached via Subscriptions & Pre-Orders > Pre-Orders > <publisher>. Unlike
